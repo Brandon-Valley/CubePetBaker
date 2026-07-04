@@ -1,0 +1,2606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#8bd8ff">
+<title>Cube Pets: Pie Hunt</title>
+<style>
+  :root {
+    --ink: #2f3345;
+    --cream: #fffaf0;
+    --pink: #ff78a8;
+    --pink-dark: #e9548b;
+    --mint: #70d7ad;
+    --mint-dark: #48b889;
+    --yellow: #ffd66b;
+    --blue: #75cfff;
+    --panel: rgba(255,255,255,.9);
+    --shadow: 0 14px 38px rgba(47,51,69,.18);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #8bd8ff; color: var(--ink); font-family: ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif; touch-action: none; }
+  button { font: inherit; color: inherit; }
+  #app { position: fixed; inset: 0; overflow: hidden; background: linear-gradient(#8bd8ff 0%, #d8f5ff 58%, #f8f4c9 100%); }
+  #game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 43%, transparent 48%, rgba(52,71,92,.12) 115%); }
+  .hidden { display: none !important; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; z-index: 10; }
+
+  #loading-screen { justify-content: center; gap: 14px; background: linear-gradient(160deg,#8bd8ff,#d9f7ff 60%,#fff5c5); }
+  .logo-bubble { width: min(84vw,420px); padding: 22px 24px; border-radius: 32px; background: rgba(255,255,255,.86); box-shadow: var(--shadow); text-align: center; backdrop-filter: blur(12px); }
+  .logo-bubble h1 { margin: 0; font-size: clamp(30px,8vw,54px); line-height: .95; letter-spacing: -2px; }
+  .logo-bubble h1 span { color: var(--pink-dark); }
+  .logo-bubble p { margin: 10px 0 0; font-weight: 800; opacity: .68; }
+  .loader { width: 92px; height: 18px; border-radius: 20px; overflow: hidden; background: rgba(255,255,255,.65); box-shadow: inset 0 1px 5px rgba(0,0,0,.08); }
+  .loader > i { display: block; height: 100%; width: 22%; border-radius: inherit; background: linear-gradient(90deg,var(--pink),var(--yellow)); animation: loading 1.15s ease-in-out infinite alternate; }
+  @keyframes loading { to { width: 100%; } }
+
+  #menu-screen { justify-content: flex-end; pointer-events: none; padding: max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom)); }
+  #menu-header { position: absolute; top: max(16px,env(safe-area-inset-top)); left: 16px; right: 16px; text-align: center; text-shadow: 0 2px 0 rgba(255,255,255,.7); pointer-events: none; }
+  #menu-header h1 { margin: 0; font-size: clamp(34px,10vw,62px); line-height: .88; letter-spacing: -2.5px; }
+  #menu-header h1 span { color: var(--pink-dark); }
+  #menu-header p { margin: 8px 0 0; font-weight: 900; font-size: clamp(14px,4vw,19px); }
+  #selected-name { display: inline-flex; align-items: center; gap: 8px; margin-top: 7px; padding: 8px 15px; border-radius: 999px; background: rgba(255,255,255,.78); box-shadow: 0 5px 15px rgba(58,78,97,.12); font-size: 15px; }
+  #selected-name b { color: var(--pink-dark); }
+  #selected-name, #build-badge { display: none !important; }
+  #menu-panel { width: min(100%,620px); max-height: min(48vh,425px); padding: 14px; border: 2px solid rgba(255,255,255,.72); border-radius: 27px; background: rgba(255,255,255,.87); box-shadow: var(--shadow); backdrop-filter: blur(14px); pointer-events: auto; }
+  .panel-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 4px 10px; }
+  .panel-top strong { font-size: 18px; }
+  #model-status { font-size: 12px; font-weight: 900; opacity: .62; text-align: right; }
+  #pet-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 7px; max-height: min(25vh,210px); overflow-y: auto; padding: 2px 3px 8px; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; }
+  #pet-grid::-webkit-scrollbar { display: none; }
+  .pet-card { min-width: 0; padding: 8px 3px 7px; border: 0; border-radius: 15px; background: rgba(238,246,249,.85); box-shadow: inset 0 0 0 2px transparent; cursor: pointer; transition: transform .12s ease, background .12s ease, box-shadow .12s ease; }
+  .pet-card:active { transform: scale(.94); }
+  .pet-card.selected { background: #fff0f6; box-shadow: inset 0 0 0 3px var(--pink); transform: translateY(-2px); }
+  .pet-emoji { display: block; font-size: clamp(22px,7vw,31px); line-height: 1.05; }
+  .pet-label { display: block; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; font-weight: 900; }
+  #start-button, .big-button { width: 100%; min-height: 54px; margin-top: 9px; border: 0; border-radius: 18px; background: linear-gradient(#ff91ba,#ff6da4); color: white; font-weight: 1000; font-size: 19px; letter-spacing: .2px; box-shadow: 0 7px 0 #d94f84, 0 12px 20px rgba(217,79,132,.25); cursor: pointer; }
+  #start-button:active, .big-button:active { transform: translateY(4px); box-shadow: 0 3px 0 #d94f84,0 7px 12px rgba(217,79,132,.22); }
+  #start-button:disabled { opacity: .58; filter: grayscale(.15); transform: none; box-shadow: 0 5px 0 #b98297; }
+  #credit { margin: 10px 0 0; text-align: center; font-size: 10px; font-weight: 800; opacity: .55; }
+
+  #hud { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+  #topbar { position: absolute; top: max(12px,env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .hud-pill { min-height: 43px; display: flex; align-items: center; gap: 7px; padding: 8px 12px; border: 2px solid rgba(255,255,255,.75); border-radius: 16px; background: rgba(255,255,255,.84); box-shadow: 0 7px 18px rgba(45,66,82,.15); backdrop-filter: blur(10px); font-weight: 1000; }
+  .hud-pill small { display: block; font-size: 9px; opacity: .55; line-height: 1; }
+  .hud-pill strong { display: block; font-size: 17px; line-height: 1.1; }
+  .hud-actions { display: flex; gap: 8px; pointer-events: auto; }
+  .round-button { width: 45px; height: 45px; border: 2px solid rgba(255,255,255,.75); border-radius: 15px; background: rgba(255,255,255,.86); box-shadow: 0 7px 18px rgba(45,66,82,.15); font-size: 17px; font-weight: 1000; }
+  #mission { position: absolute; top: calc(max(12px,env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%); width: min(78vw,340px); padding: 8px 12px 10px; border-radius: 15px; background: rgba(255,255,255,.82); box-shadow: 0 6px 16px rgba(45,66,82,.12); backdrop-filter: blur(9px); text-align: center; font-size: 11px; font-weight: 1000; }
+  #progress-track { height: 7px; margin-top: 5px; border-radius: 99px; overflow: hidden; background: rgba(48,55,70,.1); }
+  #progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#70d7ad,#ffd66b,#ff78a8); transition: width .25s ease; }
+  #recipe-card { position: absolute; top: calc(max(12px,env(safe-area-inset-top)) + 128px); left: 50%; transform: translateX(-50%); width: min(86vw,380px); padding: 10px 12px 12px; border-radius: 19px; background: rgba(255,255,255,.87); box-shadow: 0 9px 18px rgba(45,66,82,.14); backdrop-filter: blur(9px); pointer-events: auto; }
+  .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .recipe-head strong { font-size: 17px; }
+  .recipe-sub { font-size: 11px; font-weight: 900; opacity: .58; }
+  .recipe-nav-wrap { display: flex; align-items: center; gap: 6px; }
+  .recipe-nav { width: 28px; height: 28px; border: 0; border-radius: 10px; background: #eef4f5; font-weight: 1000; }
+  #recipe-status { margin-top: 6px; font-size: 12px; font-weight: 1000; color: var(--pink-dark); }
+  #recipe-items { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+  .need-chip { min-width: 0; padding: 7px 9px; border-radius: 14px; background: #f3f7f8; box-shadow: inset 0 0 0 2px rgba(0,0,0,.03); font-size: 12px; font-weight: 1000; }
+  .need-chip.done { background: #e6fbef; box-shadow: inset 0 0 0 2px rgba(73,195,128,.18); }
+  .need-chip small { opacity: .55; }
+  #recipe-meta { margin-top: 8px; font-size: 10px; font-weight: 900; opacity: .55; }
+  #combo { position: absolute; top: 250px; left: 50%; transform: translateX(-50%) scale(.8); padding: 6px 12px; border-radius: 99px; color: white; background: rgba(255,93,151,.88); box-shadow: 0 6px 16px rgba(214,66,119,.2); font-size: 15px; font-weight: 1000; opacity: 0; transition: opacity .18s, transform .18s; }
+  #combo.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  #controls { position: absolute; left: 0; right: 0; bottom: max(16px,env(safe-area-inset-bottom)); height: 138px; z-index: 7; pointer-events: none; }
+  #joystick-zone { position: absolute; left: 18px; bottom: 2px; width: 126px; height: 126px; border-radius: 50%; background: rgba(255,255,255,.28); box-shadow: inset 0 0 0 3px rgba(255,255,255,.55), 0 8px 22px rgba(42,67,82,.12); backdrop-filter: blur(6px); pointer-events: auto; touch-action: none; }
+  #joystick-zone:before { content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; transform: translate(-50%,-50%); border-radius: 50%; background: rgba(255,255,255,.38); }
+  #joystick-knob { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; transform: translate(-50%,-50%); border-radius: 50%; background: linear-gradient(#fff,#f3fbff); box-shadow: 0 7px 16px rgba(37,62,78,.25), inset 0 -4px 0 rgba(62,88,106,.08); display: grid; place-items: center; font-size: 27px; }
+  #jump-button { position: absolute; right: 22px; bottom: 9px; width: 108px; height: 108px; border: 3px solid rgba(255,255,255,.8); border-radius: 50%; background: linear-gradient(#ffd976,#ffbb4a); color: #714616; box-shadow: 0 8px 0 #d79731,0 13px 23px rgba(80,59,27,.18); font-weight: 1000; font-size: 12px; line-height: 1.05; pointer-events: auto; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  #jump-icon { display: block; font-size: 28px; line-height: 1.05; }
+  #jump-label { display: block; }
+  #jump-button:active, #jump-button.pressed { transform: translateY(5px); box-shadow: 0 3px 0 #d79731,0 7px 14px rgba(80,59,27,.18); }
+  #toast { position: absolute; left: 50%; bottom: calc(max(16px,env(safe-area-inset-bottom)) + 150px); transform: translate(-50%,18px); width: min(86vw,390px); padding: 11px 15px; border-radius: 16px; background: rgba(47,51,69,.88); color: white; text-align: center; font-size: 13px; font-weight: 900; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; }
+  #toast.show { opacity: 1; transform: translate(-50%,0); }
+
+  .modal-wrap { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(55,67,82,.28); backdrop-filter: blur(8px); }
+  .modal { width: min(92vw,430px); padding: 22px; border: 2px solid rgba(255,255,255,.72); border-radius: 28px; background: rgba(255,255,255,.94); box-shadow: 0 20px 60px rgba(33,46,60,.25); text-align: center; }
+  .modal h2 { margin: 0; font-size: 32px; line-height: 1; }
+  .modal p { margin: 9px 0 15px; font-weight: 800; opacity: .68; }
+  .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 14px 0; }
+  .stat { padding: 11px 5px; border-radius: 16px; background: #f2f7f8; }
+  .stat small { display: block; font-size: 9px; font-weight: 1000; opacity: .55; }
+  .stat b { display: block; margin-top: 3px; font-size: 20px; }
+  .secondary-button { width: 100%; min-height: 46px; margin-top: 9px; border: 0; border-radius: 15px; background: #edf3f5; font-weight: 1000; cursor: pointer; }
+  #result-emoji { font-size: 58px; line-height: 1; margin-bottom: 8px; }
+  #pantry-modal .modal { text-align: left; }
+  #pantry-modal h2, #pantry-modal p { text-align: center; }
+  .inventory-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin: 14px 0 12px; }
+  .inventory-item { padding: 10px 11px; border-radius: 15px; background: #f3f7f8; font-weight: 1000; }
+  .inventory-item small { display: block; margin-top: 2px; font-size: 10px; opacity: .6; }
+  .recipe-list { display: grid; gap: 8px; margin-top: 8px; }
+  .recipe-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #f3f7f8; font-weight: 1000; }
+  .recipe-row small { display: block; font-size: 10px; opacity: .58; }
+  .tag { padding: 5px 8px; border-radius: 999px; background: white; font-size: 11px; font-weight: 1000; }
+
+  #fatal { position: absolute; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 24px; background: #cfefff; }
+  #fatal .modal { display: block; }
+  #fatal code { display: block; margin: 12px 0; padding: 10px; border-radius: 10px; background: #eef3f5; font-size: 11px; word-break: break-word; }
+
+  @media (max-width: 430px) {
+    #menu-screen { padding: max(8px,env(safe-area-inset-top)) 6px max(4px,env(safe-area-inset-bottom)); }
+    #menu-header { top: max(8px,env(safe-area-inset-top)); }
+    #menu-header h1 { font-size: clamp(29px,8.6vw,45px); }
+    #menu-header p { margin-top: 5px; font-size: 13px; }
+    #selected-name { margin-top: 5px; padding: 6px 12px; font-size: 13px; }
+    #menu-panel { width: calc(100% - 4px); max-height: none; padding: 9px 10px 8px; border-radius: 22px; }
+    .panel-top { margin: 0 2px 5px; }
+    .panel-top strong { font-size: 15px; }
+    #model-status { font-size: 10px; }
+    #pet-grid {
+      display: grid;
+      grid-template-columns: none;
+      grid-auto-flow: column;
+      grid-auto-columns: 72px;
+      gap: 6px;
+      max-height: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 2px 2px 5px;
+      scroll-snap-type: x proximity;
+      touch-action: pan-x;
+    }
+    .pet-card { height: 72px; padding: 5px 2px 4px; border-radius: 13px; scroll-snap-align: center; }
+    .pet-emoji { font-size: 23px; }
+    .pet-label { margin-top: 2px; font-size: 9px; }
+    #start-button { min-height: 43px; margin-top: 5px; border-radius: 15px; font-size: 16px; box-shadow: 0 5px 0 #d94f84,0 8px 15px rgba(217,79,132,.2); }
+    #credit { margin-top: 6px; font-size: 7px; line-height: 1.1; }
+
+    #topbar { top: max(5px,env(safe-area-inset-top)); left: 7px; right: 7px; }
+    .hud-pill { min-height: 36px; gap: 4px; padding: 4px 7px; border-radius: 12px; }
+    .hud-pill > span:first-child { font-size: 18px !important; }
+    .hud-pill small { font-size: 7px; }
+    .hud-pill strong { font-size: 13px; }
+    .hud-actions { gap: 5px; }
+    .round-button { width: 36px; height: 36px; border-radius: 11px; font-size: 13px; }
+    #mission { display: none; }
+    #recipe-card {
+      top: max(5px,env(safe-area-inset-top));
+      left: 50%;
+      right: auto;
+      width: min(198px,calc(100% - 184px));
+      max-width: none;
+      min-height: 36px;
+      transform: translateX(-50%);
+      padding: 3px 5px 4px;
+      border-radius: 11px;
+      background: rgba(255,255,255,.76);
+      box-shadow: 0 3px 8px rgba(45,66,82,.1);
+      backdrop-filter: blur(6px);
+      z-index: 8;
+    }
+    #recipe-card.ready { background: rgba(227,255,237,.83); box-shadow: 0 0 0 2px rgba(72,184,137,.28),0 4px 10px rgba(45,66,82,.1); }
+    .recipe-head { gap: 2px; min-height: 17px; }
+    .recipe-head > div:first-child { display: flex; align-items: baseline; gap: 3px; min-width: 0; }
+    .recipe-head strong { font-size: 10px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recipe-sub { display: none; }
+    .recipe-nav-wrap { gap: 2px; }
+    .recipe-nav { width: 17px; height: 17px; border-radius: 6px; font-size: 8px; padding: 0; }
+    #recipe-status { display: none; }
+    #recipe-items { flex-wrap: nowrap; justify-content: center; gap: 3px; margin-top: 2px; overflow-x: auto; overflow-y: hidden; padding-bottom: 0; scrollbar-width: none; }
+    #recipe-items::-webkit-scrollbar { display: none; }
+    .need-chip { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; padding: 2px 4px; border-radius: 7px; font-size: 7px; line-height: 1; white-space: nowrap; }
+    .need-chip br { display: none; }
+    .need-chip small { display: inline; margin-left: 1px; font-size: 7px; }
+    #recipe-meta { display: none; }
+    #combo { top: 48px; padding: 4px 8px; font-size: 10px; }
+
+    #controls { height: 108px; bottom: max(8px,env(safe-area-inset-bottom)); }
+    #joystick-zone { left: 10px; bottom: 1px; width: 96px; height: 96px; }
+    #joystick-zone:before { width: 42px; height: 42px; }
+    #joystick-knob { width: 48px; height: 48px; font-size: 20px; }
+    #jump-button { right: 12px; bottom: 4px; width: 86px; height: 86px; font-size: 9px; border-width: 2px; }
+    #jump-icon { font-size: 22px; }
+    #toast { bottom: calc(max(8px,env(safe-area-inset-bottom)) + 106px); width: min(66vw,250px); padding: 6px 8px; border-radius: 11px; font-size: 10px; line-height: 1.2; }
+    .inventory-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (orientation: landscape) and (max-height: 600px) {
+    #menu-header { left: 18px; right: auto; width: 38%; top: 18px; text-align: left; }
+    #menu-header h1 { font-size: 44px; }
+    #menu-panel { width: min(56%,650px); align-self: flex-end; max-height: calc(100vh - 24px); }
+    #pet-grid { max-height: 46vh; grid-template-columns: repeat(8,minmax(0,1fr)); gap: 5px; }
+    .pet-card { padding: 6px 2px 5px; border-radius: 13px; }
+    .pet-emoji { font-size: 24px; }
+    .pet-label { font-size: 8px; }
+    #joystick-zone { width: 108px; height: 108px; }
+    #jump-button { width: 88px; height: 88px; }
+    #controls { height: 118px; }
+    #mission { width: min(52vw,330px); }
+    #recipe-card { width: min(54vw,350px); top: calc(max(12px,env(safe-area-inset-top)) + 110px); }
+    #combo { top: 204px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+
+
+  /* Woodland bakery HUD */
+  #topbar {
+    top: max(10px,env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: grid;
+    grid-template-columns: auto minmax(230px,410px) auto;
+    justify-content: center;
+    align-items: start;
+    gap: 10px;
+  }
+  #pie-counter {
+    position: relative;
+    min-height: 62px;
+    padding: 7px 12px 8px 9px;
+    border: 2px solid #fff5ce;
+    border-radius: 19px 19px 15px 15px;
+    background: linear-gradient(155deg,#fff5cf 0%,#f5d58f 58%,#e5b76d 100%);
+    box-shadow: 0 5px 0 #a86f3e,0 9px 20px rgba(65,48,32,.2),inset 0 2px 0 rgba(255,255,255,.65);
+    color: #654025;
+    backdrop-filter: none;
+    overflow: hidden;
+  }
+  #pie-counter:after {
+    content: "";
+    position: absolute;
+    right: -13px;
+    bottom: -14px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.2);
+  }
+  .pie-counter-icon {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 39px;
+    height: 39px;
+    border-radius: 13px;
+    background: rgba(255,250,225,.72);
+    box-shadow: inset 0 -3px 0 rgba(163,100,45,.12);
+    font-size: 27px !important;
+  }
+  .pie-counter-copy { position: relative; z-index: 1; }
+  #pie-counter small { font-size: 8px; letter-spacing: .7px; opacity: .67; }
+  #pie-counter strong { margin-top: 2px; font-size: 19px; letter-spacing: -.7px; }
+  #pie-counter strong i { margin: 0 2px; font-style: normal; font-size: .68em; opacity: .46; }
+
+  #recipe-card {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 62px;
+    transform: none;
+    padding: 7px 11px 8px;
+    border: 2px solid #fff7db;
+    border-radius: 19px 19px 15px 15px;
+    background:
+      radial-gradient(circle at 14% 0%,rgba(255,255,255,.72),transparent 31%),
+      linear-gradient(180deg,#fff7d8 0%,#f5dfab 100%);
+    box-shadow: 0 5px 0 #a9713e,0 9px 20px rgba(65,48,32,.2),inset 0 0 0 1px rgba(142,93,49,.08);
+    color: #5a3a27;
+    backdrop-filter: none;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+  #recipe-card:before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border: 1px dashed rgba(132,82,39,.16);
+    border-radius: 13px;
+    pointer-events: none;
+  }
+  #recipe-card.ready {
+    border-color: #edffd9;
+    background:
+      radial-gradient(circle at 14% 0%,rgba(255,255,255,.74),transparent 31%),
+      linear-gradient(180deg,#f4ffd9 0%,#cfe7a2 100%);
+    box-shadow: 0 5px 0 #6f9b4f,0 9px 20px rgba(51,89,42,.18),inset 0 0 0 1px rgba(68,125,56,.09);
+  }
+  .recipe-head { position: relative; z-index: 1; gap: 7px; }
+  .recipe-head > div:first-child { min-width: 0; }
+  .recipe-kicker { display: block; font-size: 7px; line-height: 1; letter-spacing: .75px; font-weight: 1000; color: #af6e43; opacity: .85; }
+  .recipe-head strong { display: block; margin-top: 2px; font-size: 17px; line-height: 1; color: #4d3123; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recipe-sub { margin-top: 2px; font-size: 9px; color: #805f49; opacity: .72; }
+  .recipe-nav-wrap { gap: 4px; }
+  .recipe-nav {
+    width: 27px;
+    height: 27px;
+    padding: 0;
+    border: 2px solid #f0f7cf;
+    border-radius: 10px;
+    background: linear-gradient(#9dd06d,#6eac55);
+    color: white;
+    box-shadow: 0 3px 0 #4f7e3e;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .recipe-nav:active { transform: translateY(2px); box-shadow: 0 1px 0 #4f7e3e; }
+  #recipe-status { position: relative; z-index: 1; margin-top: 4px; font-size: 10px; color: #d45b7e; }
+  #recipe-items { position: relative; z-index: 1; gap: 5px; margin-top: 5px; }
+  .need-chip {
+    padding: 5px 7px;
+    border: 1px solid rgba(121,82,45,.12);
+    border-radius: 11px;
+    background: rgba(255,252,232,.68);
+    box-shadow: inset 0 -2px 0 rgba(121,82,45,.07);
+    color: #56392a;
+    font-size: 10px;
+  }
+  .need-chip.done { background: rgba(222,249,202,.84); border-color: rgba(91,148,64,.18); box-shadow: inset 0 -2px 0 rgba(91,148,64,.08); }
+  #recipe-meta { position: relative; z-index: 1; margin-top: 5px; color: #765440; }
+
+  .hud-actions { display: grid; grid-template-columns: repeat(2,48px); gap: 7px; pointer-events: auto; }
+  .round-button {
+    width: 48px;
+    height: 58px;
+    padding: 5px 2px 4px;
+    border: 2px solid rgba(255,255,255,.78);
+    border-radius: 17px 17px 13px 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #4f4638;
+    font-weight: 1000;
+  }
+  .round-button span { display: block; font-size: 20px; line-height: 1; }
+  .round-button small { display: block; font-size: 6px; letter-spacing: .45px; line-height: 1; opacity: .65; }
+  #pantry-button { background: linear-gradient(#dff3b4,#a8d47d); box-shadow: 0 5px 0 #68984f,0 8px 16px rgba(50,83,44,.17); }
+  #pause-button { background: linear-gradient(#ffd1df,#ef95af); box-shadow: 0 5px 0 #b75d7d,0 8px 16px rgba(94,46,65,.17); color: #6c3750; }
+  #pause-button span { font-size: 15px; letter-spacing: 1px; }
+  .round-button:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(80,70,50,.45); }
+  #mission { top: calc(max(10px,env(safe-area-inset-top)) + 82px); }
+  #combo { top: calc(max(10px,env(safe-area-inset-top)) + 76px); }
+
+  @media (max-width: 430px) {
+    #topbar {
+      top: max(6px,env(safe-area-inset-top));
+      left: 6px;
+      right: 6px;
+      grid-template-columns: 69px minmax(0,1fr) 76px;
+      gap: 5px;
+    }
+    #pie-counter {
+      width: 69px;
+      min-height: 58px;
+      gap: 3px;
+      padding: 5px 5px 6px;
+      border-radius: 16px 16px 12px 12px;
+      box-shadow: 0 4px 0 #a86f3e,0 7px 14px rgba(65,48,32,.18),inset 0 2px 0 rgba(255,255,255,.58);
+    }
+    .pie-counter-icon { width: 29px; height: 34px; border-radius: 10px; font-size: 22px !important; }
+    #pie-counter small { font-size: 6px; letter-spacing: .35px; white-space: nowrap; }
+    #pie-counter strong { font-size: 15px; }
+
+    #recipe-card {
+      width: 100%;
+      min-height: 58px;
+      padding: 5px 6px 6px;
+      border-radius: 16px 16px 12px 12px;
+      box-shadow: 0 4px 0 #a9713e,0 7px 14px rgba(65,48,32,.18),inset 0 0 0 1px rgba(142,93,49,.06);
+    }
+    #recipe-card.ready { box-shadow: 0 4px 0 #6f9b4f,0 7px 14px rgba(51,89,42,.16),inset 0 0 0 1px rgba(68,125,56,.07); }
+    #recipe-card:before { inset: 3px; border-radius: 11px; }
+    .recipe-head { min-height: 22px; gap: 3px; }
+    .recipe-head > div:first-child { display: block; }
+    .recipe-kicker { display: block; font-size: 5px; letter-spacing: .45px; }
+    .recipe-head strong { margin-top: 2px; font-size: 11px; }
+    .recipe-sub { display: none; }
+    .recipe-nav-wrap { gap: 3px; }
+    .recipe-nav { width: 21px; height: 21px; border-width: 1px; border-radius: 8px; box-shadow: 0 2px 0 #4f7e3e; font-size: 14px; }
+    #recipe-status { display: none; }
+    #recipe-items { justify-content: flex-start; gap: 3px; margin-top: 3px; padding: 0 1px 0; }
+    .need-chip { gap: 2px; padding: 3px 4px; border-radius: 7px; font-size: 7px; }
+    .need-chip small { font-size: 7px; }
+    #recipe-meta { display: none; }
+
+    .hud-actions { grid-template-columns: repeat(2,36px); gap: 4px; }
+    .round-button { width: 36px; height: 54px; padding: 4px 1px 3px; border-radius: 14px 14px 10px 10px; }
+    .round-button span { font-size: 17px; }
+    .round-button small { font-size: 5px; letter-spacing: .25px; }
+    #pause-button span { font-size: 13px; }
+    #pantry-button { box-shadow: 0 4px 0 #68984f,0 6px 12px rgba(50,83,44,.15); }
+    #pause-button { box-shadow: 0 4px 0 #b75d7d,0 6px 12px rgba(94,46,65,.15); }
+    #combo { top: calc(max(6px,env(safe-area-inset-top)) + 65px); }
+  }
+
+
+  /* Guided quest and lightweight pickups */
+  #pickup-layer { position: absolute; inset: 0; z-index: 12; pointer-events: none; overflow: hidden; }
+  .pickup-float {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #70472d;
+    transform: translate(-50%,-50%);
+    animation: pickupRise .82s cubic-bezier(.16,.76,.25,1) forwards;
+    will-change: transform,opacity;
+  }
+  .pickup-plus {
+    font-size: 12px;
+    font-weight: 1000;
+    line-height: 1;
+    color: #5d9f49;
+    text-shadow: 0 1px 0 #fff8d7, 0 2px 3px rgba(63,82,43,.22);
+  }
+  .pickup-emoji {
+    font-size: 17px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 1px rgba(92,56,25,.2));
+  }
+  @keyframes pickupRise {
+    0% { opacity: 0; transform: translate(-50%,-20%) scale(.68) rotate(-5deg); }
+    20% { opacity: 1; transform: translate(-50%,-48%) scale(1.04) rotate(2deg); }
+    70% { opacity: 1; transform: translate(-50%,-112%) scale(.95) rotate(0); }
+    100% { opacity: 0; transform: translate(-50%,-165%) scale(.76); }
+  }
+
+  #guide-modal { z-index: 30; background: rgba(45,62,55,.34); backdrop-filter: blur(8px); }
+  .guide-card {
+    width: min(92vw,470px);
+    max-height: min(92vh,720px);
+    overflow-y: auto;
+    padding: 18px;
+    border: 3px solid #fff4c8;
+    border-radius: 28px 28px 23px 23px;
+    background:
+      radial-gradient(circle at 8% 0%,rgba(255,255,255,.72),transparent 29%),
+      linear-gradient(165deg,#fff9dc 0%,#f5dda4 100%);
+    box-shadow: 0 8px 0 #9b693d,0 22px 58px rgba(42,35,25,.34),inset 0 0 0 2px rgba(132,82,39,.08);
+    color: #5d3c28;
+  }
+  .guide-title-row { display: flex; align-items: center; gap: 12px; text-align: left; }
+  .guide-title-row small { display: block; font-size: 9px; letter-spacing: 1px; font-weight: 1000; color: #b8664a; }
+  .guide-title-row h2 { margin: 2px 0 0; font-size: 29px; line-height: 1; letter-spacing: -1px; }
+  .guide-mascot { display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 19px; background: linear-gradient(#ffd783,#efa857); box-shadow: inset 0 -5px 0 rgba(139,78,31,.12),0 5px 0 #a66a38; font-size: 35px; }
+  .guide-progress { margin-top: 13px; padding: 9px 11px; border: 1px dashed rgba(113,72,36,.24); border-radius: 13px; background: rgba(255,252,230,.62); font-size: 12px; font-weight: 850; text-align: center; }
+  .guide-steps { display: grid; gap: 8px; margin-top: 12px; }
+  .guide-step { display: grid; grid-template-columns: 43px minmax(0,1fr); align-items: center; gap: 9px; padding: 8px 9px; border-radius: 15px; background: rgba(255,252,232,.72); box-shadow: inset 0 -2px 0 rgba(113,72,36,.06); text-align: left; }
+  .guide-step > span { display: grid; place-items: center; width: 39px; height: 39px; border-radius: 13px; background: rgba(255,218,130,.62); font-size: 24px; }
+  .guide-step b { display: block; font-size: 13px; }
+  .guide-step small { display: block; margin-top: 2px; font-size: 10px; line-height: 1.28; font-weight: 750; opacity: .72; }
+  .guide-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 12px 0 2px; }
+  .guide-controls span { padding: 5px 7px; border-radius: 999px; background: rgba(112,170,81,.15); font-size: 9px; font-weight: 1000; color: #53723d; }
+  .guide-card .big-button { min-height: 50px; margin-top: 10px; }
+
+  @media (max-width:430px) {
+    .guide-card { width: min(94vw,410px); max-height: 88vh; padding: 13px; border-radius: 23px 23px 19px 19px; }
+    .guide-mascot { flex-basis: 48px; width: 48px; height: 48px; border-radius: 16px; font-size: 29px; }
+    .guide-title-row h2 { font-size: 24px; }
+    .guide-title-row small { font-size: 7px; }
+    .guide-progress { margin-top: 10px; padding: 7px 8px; font-size: 10px; }
+    .guide-steps { gap: 6px; margin-top: 9px; }
+    .guide-step { grid-template-columns: 36px minmax(0,1fr); gap: 7px; padding: 6px 7px; border-radius: 12px; }
+    .guide-step > span { width: 33px; height: 33px; border-radius: 11px; font-size: 20px; }
+    .guide-step b { font-size: 11px; }
+    .guide-step small { font-size: 8px; line-height: 1.22; }
+    .guide-controls { margin-top: 9px; gap: 4px; }
+    .guide-controls span { font-size: 7px; padding: 4px 6px; }
+    .guide-card .big-button { min-height: 44px; font-size: 16px; }
+    .pickup-float { padding: 0; }
+    .pickup-plus { font-size: 11px; }
+    .pickup-emoji { font-size: 16px; }
+  }
+
+
+  /* Expanded woods, guidance, and compact objective compass */
+  #build-badge {
+    display: table;
+    margin: 7px auto 0;
+    padding: 5px 10px 4px;
+    border: 2px solid rgba(255,255,255,.82);
+    border-radius: 999px;
+    background: linear-gradient(180deg,#8bc96c,#5fa74f);
+    box-shadow: 0 3px 0 #477e3e,0 7px 13px rgba(45,82,41,.2);
+    color: #fffdf0;
+    font-size: 8px;
+    font-weight: 1000;
+    letter-spacing: 1.1px;
+    text-shadow: 0 1px rgba(55,85,38,.45);
+  }
+  #objective-compass {
+    position: absolute;
+    top: calc(max(10px,env(safe-area-inset-top)) + 72px);
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    max-width: min(82vw,360px);
+    min-height: 34px;
+    padding: 5px 10px 6px 7px;
+    border: 2px solid rgba(255,250,213,.9);
+    border-radius: 999px;
+    background: linear-gradient(180deg,rgba(120,183,86,.96),rgba(77,139,67,.97));
+    box-shadow: 0 4px 0 rgba(62,105,51,.9),0 8px 18px rgba(37,74,41,.18),inset 0 1px 0 rgba(255,255,255,.35);
+    color: white;
+    transform: translateX(-50%);
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(44,82,37,.55);
+  }
+  #objective-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: rgba(255,248,205,.96);
+    box-shadow: inset 0 -2px 0 rgba(120,80,35,.12);
+    font-size: 16px;
+    text-shadow: none;
+  }
+  #objective-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 10px;
+    font-weight: 1000;
+    letter-spacing: .15px;
+  }
+  #objective-arrow {
+    display: grid;
+    place-items: center;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: rgba(255,246,194,.95);
+    color: #507e3e;
+    font-size: 18px;
+    font-weight: 1000;
+    line-height: 1;
+    text-shadow: none;
+    transition: transform .12s linear;
+  }
+  @media (max-width:430px) {
+    #build-badge { margin-top: 5px; padding: 4px 8px 3px; font-size: 7px; }
+    #objective-compass {
+      top: calc(max(6px,env(safe-area-inset-top)) + 64px);
+      max-width: 78vw;
+      min-height: 29px;
+      gap: 5px;
+      padding: 3px 7px 4px 4px;
+      border-width: 1.5px;
+      box-shadow: 0 3px 0 rgba(62,105,51,.9),0 6px 13px rgba(37,74,41,.16);
+    }
+    #objective-icon { flex-basis: 22px; width: 22px; height: 22px; font-size: 14px; }
+    #objective-text { font-size: 8px; }
+    #objective-arrow { flex-basis: 22px; width: 22px; height: 22px; font-size: 15px; }
+  }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas" aria-label="3D Cube Pets game"></canvas>
+  <div id="vignette"></div>
+
+  <section id="loading-screen" class="screen">
+    <div class="logo-bubble">
+      <h1>Cube Pets<br><span>Pie Hunt</span></h1>
+      <p>Growing the woodland...</p>
+    </div>
+    <div class="loader"><i></i></div>
+  </section>
+
+  <section id="menu-screen" class="screen hidden">
+    <div id="menu-header">
+      <h1>Cube Pets<br><span>Pie Hunt</span></h1>
+      <p>Pick a tiny baker for a woodland pie adventure.</p>
+      <div id="selected-name" aria-hidden="true"><span id="selected-emoji"></span><b id="selected-label">Fox</b></div>
+    </div>
+    <div id="menu-panel">
+      <div class="panel-top"><strong>Choose your pet</strong><span id="model-status">Loading Fox...</span></div>
+      <div id="pet-grid" role="listbox" aria-label="Choose a cube pet"></div>
+      <button id="start-button" disabled>Loading your pet...</button>
+      <div id="credit">Cube Pets: Kenney CC0.</div>
+    </div>
+  </section>
+
+  <section id="hud" class="hidden" aria-live="polite">
+    <div id="topbar">
+      <div id="pie-counter" class="hud-pill">
+        <span class="pie-counter-icon">🥧</span>
+        <span class="pie-counter-copy"><small>PIES BAKED</small><strong><span id="pies-baked">0</span><i>/</i><span id="pies-goal">6</span></strong></span>
+      </div>
+      <div id="recipe-card">
+        <div class="recipe-head">
+          <div>
+            <span id="recipe-kicker" class="recipe-kicker">STEP 1 • GATHER</span>
+            <strong id="recipe-name">Apple Pie</strong>
+            <div class="recipe-sub" id="recipe-sub">Your starter recipe</div>
+          </div>
+          <div class="recipe-nav-wrap">
+            <button id="recipe-prev" class="recipe-nav" aria-label="Previous recipe">‹</button>
+            <button id="recipe-next" class="recipe-nav" aria-label="Next recipe">›</button>
+          </div>
+        </div>
+        <div id="recipe-status">Gather ingredients</div>
+        <div id="recipe-items"></div>
+        <div id="recipe-meta">Known recipes: <span id="known-count">1</span>/6 • Score: <span id="score">0</span></div>
+      </div>
+      <div class="hud-actions">
+        <button id="pantry-button" class="round-button" aria-label="Open pantry"><span>📖</span><small>BOOK</small></button>
+        <button id="pause-button" class="round-button" aria-label="Pause game"><span>II</span><small>PAUSE</small></button>
+      </div>
+    </div>
+    <div id="objective-compass"><span id="objective-icon">🍎</span><span id="objective-text">Find apples • 0 / 3</span><span id="objective-arrow">↑</span></div>
+    <div id="mission">Collect the ingredients for your first pie.<div id="progress-track"><div id="progress-fill"></div></div></div>
+    <div id="combo">Combo x2</div>
+  </section>
+
+  <div id="controls" class="hidden">
+    <div id="joystick-zone" aria-label="Movement joystick"><div id="joystick-knob">🐾</div></div>
+    <button id="jump-button" aria-label="Action button"><span id="jump-icon">⇧</span><span id="jump-label">BIG HOP</span></button>
+  </div>
+  <div id="toast"></div>
+  <div id="pickup-layer" aria-hidden="true"></div>
+
+  <div id="guide-modal" class="modal-wrap hidden">
+    <div class="guide-card">
+      <div class="guide-title-row">
+        <div class="guide-mascot">🥧</div>
+        <div><small>BIG WOODS QUEST</small><h2>Bake all 6 pies!</h2></div>
+      </div>
+      <div class="guide-progress">Your goal is simple: explore the much larger woods and bake <b>all 6 unique pies</b>. The pie counter tracks <b>0 / 6</b>.</div>
+      <div class="guide-steps">
+        <div class="guide-step"><span>📜</span><div><b>1. Choose a recipe</b><small>The parchment HUD shows each ingredient. <strong>0 / 3</strong> means you own 0 and need 3.</small></div></div>
+        <div class="guide-step"><span>🧺</span><div><b>2. Forage through the woods</b><small>Follow the green compass below the HUD. It points to the next missing ingredient and shows the distance. Pickups appear above your pet.</small></div></div>
+        <div class="guide-step"><span>🔥</span><div><b>3. Return to the oven</b><small>When every ingredient chip turns green, find the smoking woodland oven. The hop button changes to <strong>BAKE PIE</strong>.</small></div></div>
+        <div class="guide-step"><span>🏆</span><div><b>4. Complete the cookbook</b><small>Discover and bake every unique pie. The BOOK button shows your pantry, recipes, and clues for locked recipes.</small></div></div>
+      </div>
+      <div class="guide-controls"><span>🐾 Left stick: move</span><span>☝️ Drag meadow: camera</span><span>🤏 Pinch: zoom</span></div>
+      <button id="guide-start-button" class="big-button">I understand • start foraging</button>
+    </div>
+  </div>
+
+  <div id="pause-modal" class="modal-wrap hidden">
+    <div class="modal">
+      <div style="font-size:48px">🥧</div>
+      <h2>Kitchen pause</h2>
+      <p>The oven will stay warm for you.</p>
+      <button id="resume-button" class="big-button">Back to baking</button>
+      <button id="guide-button" class="secondary-button">How to play</button>
+      <button id="pause-pets-button" class="secondary-button">Choose another pet</button>
+    </div>
+  </div>
+
+  <div id="pantry-modal" class="modal-wrap hidden">
+    <div class="modal">
+      <h2>Pantry and cookbook</h2>
+      <p>Everything your tiny baker has gathered so far.</p>
+      <div id="inventory-grid" class="inventory-grid"></div>
+      <div style="font-weight:1000;margin:10px 0 6px;text-align:left;">Recipes</div>
+      <div id="recipe-list" class="recipe-list"></div>
+      <button id="close-pantry-button" class="big-button">Back to the meadow</button>
+    </div>
+  </div>
+
+  <div id="result-modal" class="modal-wrap hidden">
+    <div class="modal">
+      <div id="result-emoji"></div>
+      <h2>Grand picnic complete!</h2>
+      <p id="result-message">Your pet baked the full pie menu.</p>
+      <div class="stats">
+        <div class="stat"><small>TIME</small><b id="result-time">0:00</b></div>
+        <div class="stat"><small>SCORE</small><b id="result-score">0</b></div>
+        <div class="stat"><small>BEST</small><b id="result-best">--</b></div>
+      </div>
+      <button id="again-button" class="big-button">Bake again</button>
+      <button id="result-pets-button" class="secondary-button">Choose another pet</button>
+    </div>
+  </div>
+
+  <div id="fatal">
+    <div class="modal">
+      <h2>Could not start 3D</h2>
+      <p>This game needs WebGL and an internet connection the first time it opens so it can load the Cube Pets models.</p>
+      <code id="fatal-message"></code>
+      <button class="secondary-button" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var PETS = [
+    { id: "animal-fox", name: "Fox", emoji: "🦊", color: 0xf18d48 },
+    { id: "animal-cat", name: "Cat", emoji: "🐱", color: 0xa8a7ad },
+    { id: "animal-dog", name: "Dog", emoji: "🐶", color: 0xc99867 },
+    { id: "animal-bunny", name: "Bunny", emoji: "🐰", color: 0xe4d8cf },
+    { id: "animal-penguin", name: "Penguin", emoji: "🐧", color: 0x4d5661 },
+    { id: "animal-panda", name: "Panda", emoji: "🐼", color: 0xf2f2ea },
+    { id: "animal-lion", name: "Lion", emoji: "🦁", color: 0xd79b4b },
+    { id: "animal-tiger", name: "Tiger", emoji: "🐯", color: 0xe89239 },
+    { id: "animal-cow", name: "Cow", emoji: "🐮", color: 0xf0ede7 },
+    { id: "animal-pig", name: "Pig", emoji: "🐷", color: 0xf3a4ad },
+    { id: "animal-monkey", name: "Monkey", emoji: "🐵", color: 0x9c6c45 },
+    { id: "animal-elephant", name: "Elephant", emoji: "🐘", color: 0x8ea2ad },
+    { id: "animal-deer", name: "Deer", emoji: "🦌", color: 0xb9885c },
+    { id: "animal-giraffe", name: "Giraffe", emoji: "🦒", color: 0xe1b64f },
+    { id: "animal-koala", name: "Koala", emoji: "🐨", color: 0x9ea6aa },
+    { id: "animal-polar", name: "Polar Bear", emoji: "🐻‍❄️", color: 0xe9f1f2 },
+    { id: "animal-beaver", name: "Beaver", emoji: "🦫", color: 0x9d6949 },
+    { id: "animal-bee", name: "Bee", emoji: "🐝", color: 0xf1bf3d },
+    { id: "animal-chick", name: "Chick", emoji: "🐥", color: 0xf4cf52 },
+    { id: "animal-hog", name: "Hog", emoji: "🐗", color: 0x7e665c },
+    { id: "animal-crab", name: "Crab", emoji: "🦀", color: 0xdb624f },
+    { id: "animal-fish", name: "Fish", emoji: "🐠", color: 0x65b8d0 },
+    { id: "animal-parrot", name: "Parrot", emoji: "🦜", color: 0x63a964 },
+    { id: "animal-caterpillar", name: "Caterpillar", emoji: "🐛", color: 0x75b95b }
+  ];
+
+  var INGREDIENTS = [
+    { key: "apple", name: "Apple", emoji: "🍎", color: 0xe25757, zone: { x: -22.5, z: 16.5, spread: 7.7 } },
+    { key: "blueberry", name: "Blueberry", emoji: "🫐", color: 0x4f69d9, zone: { x: 22.0, z: 16.5, spread: 7.7 } },
+    { key: "cherry", name: "Cherry", emoji: "🍒", color: 0xc64255, zone: { x: -22.0, z: -16.5, spread: 7.9 } },
+    { key: "pumpkin", name: "Pumpkin", emoji: "🎃", color: 0xe38d3d, zone: { x: 22.0, z: -16.5, spread: 7.9 } },
+    { key: "honey", name: "Honey", emoji: "🍯", color: 0xe7b34f, zone: { x: 0, z: -27.0, spread: 8.2 } }
+  ];
+
+  var RECIPES = [
+    { id: "applePie", name: "Apple Pie", emoji: "🥧", pieColor: 0xd88954, desc: "Starter recipe", unlock: { type: "start" }, needs: { apple: 3, honey: 1 } },
+    { id: "blueberryPie", name: "Blueberry Pie", emoji: "🫐", pieColor: 0x5c6fe0, desc: "Found in a berry recipe scroll", unlock: { type: "scroll" }, needs: { blueberry: 4, honey: 1 } },
+    { id: "cherryPie", name: "Cherry Pie", emoji: "🍒", pieColor: 0xd34f62, desc: "Found in a grove recipe scroll", unlock: { type: "scroll" }, needs: { cherry: 4, honey: 1 } },
+    { id: "forestPie", name: "Forest Pie", emoji: "🌲", pieColor: 0x7d5cb8, desc: "Found in a deep-woods recipe scroll", unlock: { type: "scroll" }, needs: { apple: 2, blueberry: 2, cherry: 1 } },
+    { id: "pumpkinPie", name: "Pumpkin Pie", emoji: "🎃", pieColor: 0xe29a44, desc: "Achievement recipe for baking 2 pies", unlock: { type: "achievement", pies: 2 }, needs: { pumpkin: 2, honey: 2 } },
+    { id: "harvestPie", name: "Harvest Pie", emoji: "🍂", pieColor: 0xe4b95f, desc: "Achievement recipe for baking 5 pies", unlock: { type: "achievement", pies: 5 }, needs: { apple: 1, pumpkin: 2, honey: 1 } }
+  ];
+
+  var ASSET_BASE = "https://cdn.jsdelivr.net/gh/melonjs/melonJS@f227956a3101f180c3ad09da34558fba1c8ef364/packages/examples/public/assets/mesh3d/kenney/";
+  var BUTTERFLY_REFERENCE = "Low-poly butterfly inspired by cute stylized web references";
+  var WORLD_RADIUS = 45.5;
+  var BAKERY_Z = 36.5;
+  var GOAL_UNIQUE_PIES = RECIPES.length;
+  var clock = null;
+  var scene, camera, renderer, playerRoot, petMount, shadowBlob, meadow;
+  var oven = null;
+  var gameState = "loading";
+  var selectedPet = PETS[0];
+  var modelCache = new Map();
+  var modelLoadToken = 0;
+  var ingredientNodes = [];
+  var recipeScrolls = [];
+  var puddles = [];
+  var mushrooms = [];
+  var particles = [];
+  var butterflies = [];
+  var butterflyMixers = [];
+  var decorativeSpinners = [];
+  var foragingBeacons = [];
+  var pieDisplayMeshes = {};
+  var pieSlots = [];
+  var input = { x: 0, y: 0, keys: Object.create(null) };
+  var player = { x: 0, z: 0, vx: 0, vz: 0, yaw: 0, hopPhase: 0, jumpY: 0, jumpV: 0, moving: false, slow: 1 };
+  var cameraControl = {
+    yaw: 0,
+    targetYaw: 0,
+    pitch: 0.52,
+    targetPitch: 0.52,
+    distance: 27.0,
+    targetDistance: 27.0,
+    minDistance: 7.2,
+    maxDistance: 58.0
+  };
+  var cameraPointers = new Map();
+  var lastPinchDistance = 0;
+  var run = { score: 0, elapsed: 0, combo: 1, comboTimer: 0, totalPies: 0, uniquePies: 0, activeRecipeId: "applePie" };
+  var inventory = {};
+  var knownRecipes = {};
+  var bakedRecipes = {};
+  var tutorialShown = false;
+  var guideReturnState = "playing";
+  var contextAction = "";
+  var audioContext = null;
+  var toastTimer = 0;
+  var lastFrame = performance.now();
+  var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var dom = {};
+  ["loading-screen","menu-screen","pet-grid","selected-name","selected-emoji","selected-label","model-status","start-button","hud","controls","pies-baked","pies-goal","progress-fill","combo","pause-button","pause-modal","resume-button","pause-pets-button","result-modal","result-emoji","result-message","result-time","result-score","result-best","again-button","result-pets-button","joystick-zone","joystick-knob","jump-button","jump-icon","jump-label","toast","fatal","fatal-message","pantry-button","pantry-modal","close-pantry-button","inventory-grid","recipe-list","recipe-card","recipe-name","recipe-sub","recipe-status","recipe-items","recipe-prev","recipe-next","known-count","score","mission","recipe-kicker","guide-modal","guide-start-button","guide-button","pickup-layer","objective-compass","objective-icon","objective-text","objective-arrow"].forEach(function (id) {
+    dom[id] = document.getElementById(id);
+  });
+
+  function fail(message) {
+    gameState = "fatal";
+    dom["loading-screen"].classList.add("hidden");
+    dom.fatal.style.display = "flex";
+    dom["fatal-message"].textContent = String(message || "Unknown error");
+  }
+
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function damp(a, b, lambda, dt) { return lerp(a, b, 1 - Math.exp(-lambda * dt)); }
+  function angleDamp(a, b, lambda, dt) {
+    var diff = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+    return a + diff * (1 - Math.exp(-lambda * dt));
+  }
+  function seeded(seed) {
+    var t = seed >>> 0;
+    return function () {
+      t += 0x6D2B79F5;
+      var r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function ingredientDef(key) {
+    for (var i = 0; i < INGREDIENTS.length; i++) if (INGREDIENTS[i].key === key) return INGREDIENTS[i];
+    return null;
+  }
+  function recipeDef(id) {
+    for (var i = 0; i < RECIPES.length; i++) if (RECIPES[i].id === id) return RECIPES[i];
+    return null;
+  }
+  function recipeIndex(id) {
+    for (var i = 0; i < RECIPES.length; i++) if (RECIPES[i].id === id) return i;
+    return -1;
+  }
+  function knownRecipeList() {
+    return RECIPES.filter(function (r) { return !!knownRecipes[r.id]; });
+  }
+
+  function init() {
+    if (!window.THREE || !THREE.MTLLoader || !THREE.OBJLoader) {
+      fail("The 3D libraries did not load. Check your internet connection and reopen the file.");
+      return;
+    }
+    try {
+      initThree();
+      createWorld();
+      buildPetGrid();
+      bindUI();
+      resize();
+      window.addEventListener("resize", resize, { passive: true });
+      clock = new THREE.Clock();
+      selectPet(PETS[0], true);
+      setTimeout(function () {
+        dom["loading-screen"].classList.add("hidden");
+        dom["menu-screen"].classList.remove("hidden");
+        gameState = "menu";
+      }, 650);
+      requestAnimationFrame(loop);
+    } catch (error) {
+      console.error(error);
+      fail(error && error.message ? error.message : error);
+    }
+  }
+
+  function initThree() {
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("game-canvas"), antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.65));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x8bd8ff, 1);
+
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xbdeaff, 52, 132);
+    camera = new THREE.PerspectiveCamera(44, 1, 0.1, 230);
+    camera.position.set(4.5, 4.1, 7.6);
+
+    var hemi = new THREE.HemisphereLight(0xeafaff, 0x78a85d, 1.05);
+    scene.add(hemi);
+    var sun = new THREE.DirectionalLight(0xfff5cf, 1.22);
+    sun.position.set(-8, 14, 9);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -56;
+    sun.shadow.camera.right = 56;
+    sun.shadow.camera.top = 56;
+    sun.shadow.camera.bottom = -56;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 104;
+    sun.shadow.bias = -0.0007;
+    scene.add(sun);
+
+    playerRoot = new THREE.Group();
+    petMount = new THREE.Group();
+    playerRoot.add(petMount);
+    scene.add(playerRoot);
+
+    var shadowMat = new THREE.MeshBasicMaterial({ color: 0x274a39, transparent: true, opacity: 0.22, depthWrite: false });
+    shadowBlob = new THREE.Mesh(new THREE.CircleGeometry(0.78, 28), shadowMat);
+    shadowBlob.rotation.x = -Math.PI / 2;
+    shadowBlob.position.y = 0.028;
+    scene.add(shadowBlob);
+  }
+
+  function mat(color, roughness, metalness) {
+    return new THREE.MeshStandardMaterial({ color: color, roughness: roughness == null ? 0.86 : roughness, metalness: metalness || 0, flatShading: true });
+  }
+
+  function createWorld() {
+    meadow = new THREE.Group();
+    scene.add(meadow);
+
+    var sideMat = mat(0x70a84c);
+    var topMat = mat(0x92d46a);
+    var ground = new THREE.Mesh(new THREE.CylinderGeometry(47.5, 49.0, 1.3, 112, 1, false), [sideMat, topMat, sideMat]);
+    ground.position.y = -0.66;
+    ground.receiveShadow = true;
+    meadow.add(ground);
+
+    var pathMat = new THREE.MeshStandardMaterial({ color: 0xd8c58d, roughness: 1, transparent: true, opacity: 0.7 });
+    var path = new THREE.Mesh(new THREE.TorusGeometry(27.5, 1.35, 8, 112), pathMat);
+    path.rotation.x = Math.PI / 2;
+    path.position.y = 0.015;
+    path.receiveShadow = true;
+    meadow.add(path);
+
+    createForagingBeacons();
+    createTrees();
+    createFlowers();
+    createClouds();
+    createPuddles();
+    createMushrooms();
+    createBakeryArea();
+    createButterflies();
+  }
+
+
+  function createForagingBeacons() {
+    INGREDIENTS.forEach(function (info, index) {
+      var beacon = new THREE.Group();
+      var patch = new THREE.Mesh(
+        new THREE.CircleGeometry(5.6, 32),
+        new THREE.MeshStandardMaterial({ color: info.color, roughness: 1, transparent: true, opacity: .12, depthWrite: false })
+      );
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.y = .024;
+      patch.scale.z = .72;
+      beacon.add(patch);
+
+      var ring = new THREE.Mesh(
+        new THREE.RingGeometry(4.5,4.72,32),
+        new THREE.MeshBasicMaterial({ color: info.color, transparent: true, opacity: .22, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = .035;
+      ring.scale.z = .72;
+      beacon.add(ring);
+
+      var pole = new THREE.Mesh(new THREE.CylinderGeometry(.08,.11,2.4,6),mat(0x96704c));
+      pole.position.y = 1.2;
+      pole.castShadow = true;
+      beacon.add(pole);
+
+      var crown = createIngredientMesh(info.key);
+      crown.scale.setScalar(1.45);
+      crown.position.y = 2.7;
+      beacon.add(crown);
+      beacon.userData.crown = crown;
+      beacon.userData.phase = index * 1.35;
+      beacon.position.set(info.zone.x,0,info.zone.z);
+      meadow.add(beacon);
+      foragingBeacons.push(beacon);
+    });
+  }
+
+  function createTrees() {
+    var rnd = seeded(2048);
+    for (var i = 0; i < 44; i++) {
+      var angle = (i / 44) * Math.PI * 2 + rnd() * 0.18;
+      var radius = 39.0 + rnd() * 5.0;
+      var scale = 0.75 + rnd() * 0.5;
+      var tree = new THREE.Group();
+      var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.36, 2.1, 6), mat(0x9b704f));
+      trunk.position.y = 1.05;
+      trunk.castShadow = true;
+      var crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1.25, 0), mat(i % 3 === 0 ? 0x69bd72 : 0x58aa66));
+      crown.position.y = 2.65;
+      crown.scale.set(1.05, 1.2, 1.05);
+      crown.castShadow = true;
+      crown.receiveShadow = true;
+      tree.add(trunk, crown);
+      if (i % 4 === 0) {
+        var fruit = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), mat(0xff7e86));
+        fruit.position.set(0.55, 2.75, 0.7);
+        fruit.castShadow = true;
+        tree.add(fruit);
+      }
+      tree.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+      tree.scale.setScalar(scale);
+      tree.rotation.y = rnd() * Math.PI * 2;
+      meadow.add(tree);
+    }
+  }
+
+  function createFlowers() {
+    var rnd = seeded(77);
+    var colors = [0xff8fb1,0xffdf70,0xffffff,0x9e86ff,0x79d6ef];
+    for (var i = 0; i < 220; i++) {
+      var a = rnd() * Math.PI * 2;
+      var r = 3.2 + rnd() * 39.0;
+      var flower = new THREE.Group();
+      var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.025,0.27,5), mat(0x4f9c55));
+      stem.position.y = 0.135;
+      var center = new THREE.Mesh(new THREE.SphereGeometry(0.055,6,4), mat(0xf2a93b));
+      center.position.y = 0.29;
+      flower.add(stem, center);
+      for (var p = 0; p < 5; p++) {
+        var petal = new THREE.Mesh(new THREE.SphereGeometry(0.052,6,4), mat(colors[i % colors.length]));
+        var pa = p / 5 * Math.PI * 2;
+        petal.position.set(Math.cos(pa)*0.075,0.29,Math.sin(pa)*0.075);
+        petal.scale.set(1.3,.45,1.0);
+        flower.add(petal);
+      }
+      flower.position.set(Math.cos(a)*r,0,Math.sin(a)*r);
+      flower.rotation.y = rnd()*Math.PI*2;
+      flower.scale.setScalar(0.75+rnd()*0.7);
+      meadow.add(flower);
+    }
+  }
+
+  function createClouds() {
+    var cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.82, fog: false });
+    for (var i = 0; i < 7; i++) {
+      var cloud = new THREE.Group();
+      for (var j = 0; j < 5; j++) {
+        var puff = new THREE.Mesh(new THREE.SphereGeometry(1,10,7), cloudMat);
+        puff.position.set((j-2)*0.75, Math.abs(j-2)*-0.14, (j%2)*0.2);
+        puff.scale.set(1.15-(Math.abs(j-2)*0.09),0.65,0.72);
+        cloud.add(puff);
+      }
+      var angle = i/7*Math.PI*2;
+      cloud.position.set(Math.cos(angle)*(63+i%2*8),8.5+(i%3)*1.7,Math.sin(angle)*(63+i%2*8));
+      cloud.scale.setScalar(1.1+(i%3)*0.28);
+      cloud.userData.speed = 0.018 + i*0.002;
+      decorativeSpinners.push(cloud);
+      scene.add(cloud);
+    }
+  }
+
+  function createPuddles() {
+    var positions = [[-15,-11],[16,-14],[-24,16],[25,13],[0,20],[4,-30],[-31,-3],[31,1],[13,29]];
+    positions.forEach(function (pos, index) {
+      var mesh = new THREE.Mesh(new THREE.CircleGeometry(2.25 + index*0.06, 30), new THREE.MeshStandardMaterial({ color: 0x6ec5df, roughness: 0.35, metalness: 0.05, transparent: true, opacity: 0.83 }));
+      mesh.rotation.x = -Math.PI/2;
+      mesh.position.set(pos[0],0.035,pos[1]);
+      mesh.scale.z = 0.64;
+      mesh.receiveShadow = true;
+      meadow.add(mesh);
+      var ring = new THREE.Mesh(new THREE.RingGeometry(1.84,2.05,30), new THREE.MeshBasicMaterial({color:0xb8eff7,transparent:true,opacity:.48,side:THREE.DoubleSide}));
+      ring.rotation.x = -Math.PI/2;
+      ring.position.set(pos[0],0.045,pos[1]);
+      ring.scale.z = .64;
+      meadow.add(ring);
+      puddles.push({ x: pos[0], z: pos[1], radius: 1.98, mesh: mesh });
+    });
+  }
+
+  function makeMushroom(scale, capColor) {
+    var group = new THREE.Group();
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,.65,8),mat(0xfff0cf));
+    stem.position.y = .33;
+    var cap = new THREE.Mesh(new THREE.SphereGeometry(.52,10,6,0,Math.PI*2,0,Math.PI/2),mat(capColor));
+    cap.position.y = .68;
+    cap.scale.y = .55;
+    cap.castShadow = true;
+    stem.castShadow = true;
+    group.add(stem,cap);
+    for (var i=0;i<5;i++) {
+      var spot = new THREE.Mesh(new THREE.SphereGeometry(.055,6,4),mat(0xfff7e7));
+      var a=i/5*Math.PI*2;
+      spot.position.set(Math.cos(a)*.3,.9,Math.sin(a)*.3);
+      spot.scale.y=.45;
+      group.add(spot);
+    }
+    group.scale.setScalar(scale);
+    return group;
+  }
+
+  function createMushrooms() {
+    var positions = [[-10,18],[11,22],[-27,-3],[28,3],[3,-30],[-21,27],[23,-25],[-33,12],[33,-11],[0,32]];
+    positions.forEach(function (pos,index) {
+      var m = makeMushroom(1.05 + (index%2)*.18,index%2?0xff8e9f:0xf16f77);
+      m.position.set(pos[0],0,pos[1]);
+      m.rotation.y = index*.9;
+      meadow.add(m);
+      mushrooms.push({x:pos[0],z:pos[1],radius:.9,mesh:m,cooldown:0});
+    });
+  }
+
+  function createBakeryArea() {
+    var area = new THREE.Group();
+    area.position.set(0,0,BAKERY_Z);
+    meadow.add(area);
+
+    var pad = new THREE.Mesh(new THREE.CircleGeometry(4.8, 36), new THREE.MeshStandardMaterial({ color: 0xe4d0ab, roughness: .96 }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.y = 0.03;
+    area.add(pad);
+
+    var ovenGroup = new THREE.Group();
+    var base = new THREE.Mesh(new THREE.BoxGeometry(2.1,1.55,1.9), mat(0x9c8b93));
+    base.position.y = 0.78;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    ovenGroup.add(base);
+    var roof = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,2.0,6,1,false,0,Math.PI), mat(0xb25f4a));
+    roof.rotation.z = Math.PI/2;
+    roof.position.set(0,1.62,-0.02);
+    roof.castShadow = true;
+    ovenGroup.add(roof);
+    var door = new THREE.Mesh(new THREE.BoxGeometry(0.96,0.84,0.12), mat(0x483d44));
+    door.position.set(0,0.72,0.98);
+    ovenGroup.add(door);
+    var opening = new THREE.Mesh(new THREE.BoxGeometry(0.66,0.52,0.02), new THREE.MeshBasicMaterial({ color: 0xffc25e }));
+    opening.position.set(0,0.7,1.05);
+    ovenGroup.add(opening);
+    var chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,1.2,6), mat(0x89777f));
+    chimney.position.set(0.72,2.2,-0.18);
+    chimney.castShadow = true;
+    ovenGroup.add(chimney);
+    var peel = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.05,0.4), mat(0xc8a074));
+    peel.position.set(-1.1,1.2,1.05);
+    peel.rotation.z = -0.2;
+    ovenGroup.add(peel);
+    var handle = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.15,6), mat(0x8d6a4c));
+    handle.position.set(-1.7,1.55,1.05);
+    handle.rotation.z = -0.2;
+    ovenGroup.add(handle);
+    ovenGroup.position.set(1.9,0,-0.2);
+    area.add(ovenGroup);
+
+    var glow = new THREE.Mesh(new THREE.RingGeometry(1.05,1.32,40), new THREE.MeshBasicMaterial({ color: 0xffdc76, transparent: true, opacity: .48, side: THREE.DoubleSide }));
+    glow.rotation.x = -Math.PI/2;
+    glow.position.set(1.9,0.05,0.15);
+    area.add(glow);
+    oven = { group: ovenGroup, x: 1.9, z: BAKERY_Z + 0.15, ring: glow, smoke: [] };
+
+    var table = new THREE.Group();
+    var top = new THREE.Mesh(new THREE.BoxGeometry(3.5,0.18,2.0), mat(0xb98958));
+    top.position.y = 1.05;
+    top.castShadow = true;
+    top.receiveShadow = true;
+    table.add(top);
+    [[-1.4,0.48,-0.78],[1.4,0.48,-0.78],[-1.4,0.48,0.78],[1.4,0.48,0.78]].forEach(function (p) {
+      var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.96,6), mat(0x956c47));
+      leg.position.set(p[0],p[1],p[2]);
+      leg.castShadow = true;
+      table.add(leg);
+    });
+    table.position.set(-2.6,0,0.1);
+    area.add(table);
+
+    var cloth = new THREE.Mesh(new THREE.PlaneGeometry(3.3,1.8), new THREE.MeshStandardMaterial({ color: 0xffb9ce, roughness: .95, side: THREE.DoubleSide }));
+    cloth.rotation.x = -Math.PI / 2;
+    cloth.position.set(-2.6,1.15,0.1);
+    area.add(cloth);
+
+    var sign = new THREE.Group();
+    var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,1.6,6), mat(0x8d6a4c));
+    pole.position.y = 0.8;
+    sign.add(pole);
+    var board = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.85,0.1), mat(0xfff0cf));
+    board.position.y = 1.68;
+    board.castShadow = true;
+    sign.add(board);
+    var stripe1 = new THREE.Mesh(new THREE.BoxGeometry(1.15,0.08,0.04), mat(0xff9db4));
+    stripe1.position.set(0,1.8,0.08);
+    sign.add(stripe1);
+    var stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.95,0.08,0.04), mat(0xffcc70));
+    stripe2.position.set(0,1.56,0.08);
+    sign.add(stripe2);
+    sign.position.set(-4.8,0,-0.2);
+    area.add(sign);
+
+    pieSlots = [
+      { x: -3.55, y: 1.21, z: BAKERY_Z - 0.58 }, { x: -2.55, y: 1.21, z: BAKERY_Z - 0.58 }, { x: -1.55, y: 1.21, z: BAKERY_Z - 0.58 },
+      { x: -3.55, y: 1.21, z: BAKERY_Z + 0.15 }, { x: -2.55, y: 1.21, z: BAKERY_Z + 0.15 }, { x: -1.55, y: 1.21, z: BAKERY_Z + 0.15 }
+    ];
+
+    for (var smokeIndex = 0; smokeIndex < 4; smokeIndex++) {
+      var puff = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.28 + smokeIndex * 0.07, 0),
+        new THREE.MeshBasicMaterial({ color: 0xfff8e7, transparent: true, opacity: 0.5 - smokeIndex * 0.07, depthWrite: false })
+      );
+      puff.position.set(2.62 + smokeIndex * 0.08, 2.7 + smokeIndex * 0.62, BAKERY_Z - 0.18 + Math.sin(smokeIndex) * 0.12);
+      puff.userData.baseY = puff.position.y;
+      puff.userData.phase = smokeIndex * 1.4;
+      meadow.add(puff);
+      oven.smoke.push(puff);
+    }
+  }
+
+  function wingShape(points) {
+    var shape = new THREE.Shape();
+    shape.moveTo(points[0][0], points[0][1]);
+    for (var i = 1; i < points.length; i++) shape.lineTo(points[i][0], points[i][1]);
+    shape.closePath();
+    var geometry = new THREE.ShapeGeometry(shape);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  function createPrettyButterfly(palette) {
+    var group = new THREE.Group();
+    var bodyRoot = new THREE.Group();
+    group.add(bodyRoot);
+
+    var bodyMat = new THREE.MeshToonMaterial({ color: palette.body, flatShading: true });
+    var darkMat = new THREE.MeshToonMaterial({ color: palette.dark, flatShading: true });
+    var borderMat = new THREE.MeshToonMaterial({ color: palette.border, flatShading: true, side: THREE.DoubleSide });
+    var foreMat = new THREE.MeshToonMaterial({ color: palette.upper, flatShading: true, side: THREE.DoubleSide });
+    var hindMat = new THREE.MeshToonMaterial({ color: palette.lower, flatShading: true, side: THREE.DoubleSide });
+    var spotMat = new THREE.MeshToonMaterial({ color: palette.spot, flatShading: true, side: THREE.DoubleSide });
+    var dot2Mat = new THREE.MeshToonMaterial({ color: palette.dot2, flatShading: true, side: THREE.DoubleSide });
+    var dot3Mat = new THREE.MeshToonMaterial({ color: palette.dot3, flatShading: true, side: THREE.DoubleSide });
+
+    var thorax = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 6), bodyMat);
+    thorax.scale.set(1.0, 1.08, 0.95);
+    thorax.castShadow = true;
+    bodyRoot.add(thorax);
+
+    var abdomen = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.075, 0.42, 6), bodyMat);
+    abdomen.rotation.z = Math.PI / 2;
+    abdomen.position.x = -0.2;
+    abdomen.castShadow = true;
+    bodyRoot.add(abdomen);
+
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 7, 6), darkMat);
+    head.position.x = 0.14;
+    head.castShadow = true;
+    bodyRoot.add(head);
+
+    var eyeMaterial = new THREE.MeshToonMaterial({ color: 0xf8f7ef, flatShading: true });
+    var eyeGeo = new THREE.SphereGeometry(0.016, 5, 4);
+    [-1, 1].forEach(function (side) {
+      var eye = new THREE.Mesh(eyeGeo, eyeMaterial);
+      eye.position.set(0.18, 0.02, side * 0.04);
+      bodyRoot.add(eye);
+
+      var antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.009, 0.18, 4), darkMat);
+      antenna.position.set(0.16, 0.1, side * 0.035);
+      antenna.rotation.z = side * 0.44;
+      antenna.rotation.y = side * 0.18;
+      bodyRoot.add(antenna);
+
+      var tip = new THREE.Mesh(new THREE.SphereGeometry(0.015, 5, 4), spotMat);
+      tip.position.set(0.22, 0.18, side * 0.055);
+      bodyRoot.add(tip);
+    });
+
+    var foreWingGeometry = wingShape([
+      [0.00, 0.03],
+      [0.28, 0.16],
+      [0.58, 0.46],
+      [0.73, 0.82],
+      [0.48, 1.05],
+      [0.12, 0.93],
+      [-0.04, 0.43]
+    ]);
+    var hindWingGeometry = wingShape([
+      [-0.02, 0.04],
+      [-0.18, 0.14],
+      [-0.46, 0.39],
+      [-0.54, 0.72],
+      [-0.29, 0.86],
+      [-0.03, 0.66],
+      [0.08, 0.30]
+    ]);
+    var foreBorderGeometry = wingShape([
+      [-0.02, 0.00],
+      [0.30, 0.13],
+      [0.63, 0.45],
+      [0.79, 0.86],
+      [0.50, 1.12],
+      [0.08, 0.98],
+      [-0.09, 0.42]
+    ]);
+    var hindBorderGeometry = wingShape([
+      [-0.05, 0.01],
+      [-0.21, 0.10],
+      [-0.51, 0.37],
+      [-0.60, 0.76],
+      [-0.30, 0.93],
+      [0.01, 0.69],
+      [0.12, 0.27]
+    ]);
+
+    var largeSpotGeometry = new THREE.CircleGeometry(0.105, 7);
+    var smallSpotGeometry = new THREE.CircleGeometry(0.065, 6);
+
+    function makeSideWing(side) {
+      var hinge = new THREE.Group();
+      hinge.position.set(0, 0.015, side * 0.035);
+      hinge.rotation.x = side * 1.24;
+      hinge.userData.baseRotationX = hinge.rotation.x;
+      hinge.userData.side = side;
+
+      var surface = new THREE.Group();
+      hinge.add(surface);
+
+      var foreBorder = new THREE.Mesh(foreBorderGeometry, borderMat);
+      foreBorder.position.z = 0;
+      foreBorder.castShadow = true;
+      surface.add(foreBorder);
+
+      var fore = new THREE.Mesh(foreWingGeometry, foreMat);
+      fore.position.set(0.005, 0.01, side * 0.004);
+      fore.castShadow = true;
+      surface.add(fore);
+
+      var hindBorder = new THREE.Mesh(hindBorderGeometry, borderMat);
+      hindBorder.position.z = 0;
+      hindBorder.castShadow = true;
+      surface.add(hindBorder);
+
+      var hind = new THREE.Mesh(hindWingGeometry, hindMat);
+      hind.position.set(-0.004, 0.005, side * 0.004);
+      hind.castShadow = true;
+      surface.add(hind);
+
+      var foreBand = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.055, 0.012), spotMat);
+      foreBand.position.set(0.33, 0.58, side * 0.01);
+      foreBand.rotation.z = 0.72;
+      surface.add(foreBand);
+
+      var hindBand = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.012), spotMat);
+      hindBand.position.set(-0.25, 0.47, side * 0.01);
+      hindBand.rotation.z = -0.62;
+      surface.add(hindBand);
+
+      var foreSpot = new THREE.Mesh(largeSpotGeometry, spotMat);
+      foreSpot.position.set(0.48, 0.81, side * 0.011);
+      foreSpot.scale.set(1.08, 0.82, 1);
+      surface.add(foreSpot);
+
+      var foreDot = new THREE.Mesh(smallSpotGeometry, dot2Mat);
+      foreDot.position.set(0.29, 0.32, side * 0.011);
+      foreDot.scale.set(0.9, 1.12, 1);
+      surface.add(foreDot);
+
+      var hindSpot = new THREE.Mesh(smallSpotGeometry, dot3Mat);
+      hindSpot.position.set(-0.31, 0.61, side * 0.011);
+      hindSpot.scale.set(1.05, 0.88, 1);
+      surface.add(hindSpot);
+
+      return hinge;
+    }
+
+    var leftWing = makeSideWing(1);
+    var rightWing = makeSideWing(-1);
+    group.add(leftWing, rightWing);
+
+    group.scale.setScalar(0.64);
+    group.rotation.y = Math.PI;
+    group.userData.leftWing = leftWing;
+    group.userData.rightWing = rightWing;
+    group.userData.bodyRoot = bodyRoot;
+    return group;
+  }
+
+  function addPrettyButterflies() {
+    var palettes = [
+      { upper: 0x6ba7ff, lower: 0x98cbff, border: 0x2d4f7c, spot: 0xf7f6e8, dot2: 0x3e5d92, dot3: 0xbedcff, body: 0x4e4550, dark: 0x2c2730 },
+      { upper: 0xffa340, lower: 0xffd066, border: 0x4a3530, spot: 0xfff2cf, dot2: 0x5a4036, dot3: 0xf8e09b, body: 0x514348, dark: 0x2f2a2d },
+      { upper: 0xff8bb5, lower: 0xffbfd6, border: 0x7d4163, spot: 0xfff6ea, dot2: 0xbf5f8d, dot3: 0xffdfe9, body: 0x4b4450, dark: 0x2f2a32 },
+      { upper: 0x8cd36e, lower: 0xb8e993, border: 0x3d6232, spot: 0xf8f3db, dot2: 0x527e45, dot3: 0xe6f7bf, body: 0x4a4a42, dark: 0x30302a },
+      { upper: 0xa88eff, lower: 0xccbcff, border: 0x4f4084, spot: 0xf8f2e3, dot2: 0x6d59b5, dot3: 0xe6ddff, body: 0x494451, dark: 0x2e2a33 },
+      { upper: 0x66d0e5, lower: 0xa9edf8, border: 0x355765, spot: 0xf7f8ea, dot2: 0x4f8192, dot3: 0xd6fbff, body: 0x464c51, dark: 0x2b3033 }
+    ];
+    for (var i = 0; i < 9; i++) {
+      var b = createPrettyButterfly(palettes[i % palettes.length]);
+      var a = i / 9 * Math.PI * 2;
+      var radius = 9 + (i % 3) * 2.4;
+      b.position.set(Math.cos(a) * radius, 1.18 + (i % 2) * 0.38, Math.sin(a) * (8.5 + (i % 3) * 2.0));
+      b.userData.base = b.position.clone();
+      b.userData.phase = i * 1.32;
+      b.userData.speed = 0.62 + i * 0.028;
+      b.userData.flapOffset = i * 1.07;
+      butterflies.push(b);
+      meadow.add(b);
+    }
+  }
+
+  function createButterflies() {
+    butterflyMixers.length = 0;
+    addPrettyButterflies();
+  }
+
+  function buildPetGrid() {
+    var frag = document.createDocumentFragment();
+    PETS.forEach(function (pet) {
+      var button = document.createElement("button");
+      button.className = "pet-card";
+      button.type = "button";
+      button.setAttribute("role","option");
+      button.setAttribute("aria-label",pet.name);
+      button.dataset.pet = pet.id;
+      var emoji = document.createElement("span");
+      emoji.className = "pet-emoji";
+      emoji.textContent = pet.emoji;
+      var label = document.createElement("span");
+      label.className = "pet-label";
+      label.textContent = pet.name;
+      button.appendChild(emoji);
+      button.appendChild(label);
+      button.addEventListener("click", function () {
+        sound("tap");
+        selectPet(pet, false);
+      });
+      frag.appendChild(button);
+    });
+    dom["pet-grid"].appendChild(frag);
+    dom["pies-goal"].textContent = String(GOAL_UNIQUE_PIES);
+  }
+
+  function setSelectedCard() {
+    Array.prototype.forEach.call(dom["pet-grid"].children,function (button) {
+      var isSelected = button.dataset.pet === selectedPet.id;
+      button.classList.toggle("selected",isSelected);
+      button.setAttribute("aria-selected",isSelected ? "true" : "false");
+      if (isSelected) button.scrollIntoView({block:"nearest",inline:"nearest"});
+    });
+    dom["selected-emoji"].textContent = selectedPet.emoji;
+    dom["selected-label"].textContent = selectedPet.name;
+  }
+
+  function loadPetModel(pet) {
+    if (modelCache.has(pet.id)) return Promise.resolve(clonePet(modelCache.get(pet.id)));
+    return new Promise(function (resolve, reject) {
+      var mtl = new THREE.MTLLoader();
+      mtl.setCrossOrigin("anonymous");
+      mtl.setPath(ASSET_BASE);
+      mtl.setResourcePath(ASSET_BASE);
+      mtl.load(pet.id + ".mtl", function (materials) {
+        materials.preload();
+        var obj = new THREE.OBJLoader();
+        obj.setMaterials(materials);
+        obj.setPath(ASSET_BASE);
+        obj.load(pet.id + ".obj", function (model) {
+          model.traverse(function (node) {
+            if (node.isMesh) {
+              node.castShadow = true;
+              node.receiveShadow = true;
+              if (node.material && node.material.map) {
+                node.material.map.encoding = THREE.sRGBEncoding;
+                node.material.map.anisotropy = Math.min(4,renderer.capabilities.getMaxAnisotropy());
+              }
+              if (node.material) {
+                node.material.side = THREE.FrontSide;
+                node.material.flatShading = true;
+              }
+            }
+          });
+          normalizePet(model);
+          modelCache.set(pet.id,model);
+          resolve(clonePet(model));
+        },undefined,reject);
+      },undefined,reject);
+    });
+  }
+
+  function normalizePet(model) {
+    var box = new THREE.Box3().setFromObject(model);
+    var size = new THREE.Vector3();
+    box.getSize(size);
+    var scale = 1.75 / Math.max(size.y,0.001);
+    model.scale.setScalar(scale);
+    box.setFromObject(model);
+    var center = new THREE.Vector3();
+    box.getCenter(center);
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= box.min.y;
+    model.userData.normalized = true;
+  }
+
+  function clonePet(model) {
+    var clone = model.clone(true);
+    clone.traverse(function (node) {
+      if (node.isMesh && node.material) node.material = node.material.clone();
+    });
+    return clone;
+  }
+
+  function createFallbackPet(pet) {
+    var group = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.BoxGeometry(1.25,1.25,1.25),mat(pet.color));
+    body.position.y=.7;
+    body.castShadow=true;
+    group.add(body);
+    var white=mat(0xffffff);
+    var dark=mat(0x303642);
+    [-.28,.28].forEach(function(x){
+      var eye=new THREE.Mesh(new THREE.BoxGeometry(.18,.18,.08),white);
+      eye.position.set(x,.93,.66);
+      var pupil=new THREE.Mesh(new THREE.BoxGeometry(.08,.1,.05),dark);
+      pupil.position.set(x,.93,.72);
+      group.add(eye,pupil);
+    });
+    var nose=new THREE.Mesh(new THREE.BoxGeometry(.18,.13,.1),dark);
+    nose.position.set(0,.69,.69);
+    group.add(nose);
+    var earGeo=new THREE.ConeGeometry(.22,.48,4);
+    [-.42,.42].forEach(function(x){
+      var ear=new THREE.Mesh(earGeo,mat(pet.color));
+      ear.position.set(x,1.55,0);
+      ear.rotation.y=Math.PI/4;
+      group.add(ear);
+    });
+    group.userData.fallback=true;
+    return group;
+  }
+
+  function selectPet(pet, initial) {
+    selectedPet = pet;
+    setSelectedCard();
+    dom["model-status"].textContent = "Loading " + pet.name + "...";
+    dom["start-button"].disabled = true;
+    dom["start-button"].textContent = "Loading your pet...";
+    var token = ++modelLoadToken;
+    loadPetModel(pet).then(function (model) {
+      if (token !== modelLoadToken) return;
+      showPetModel(model);
+      dom["model-status"].textContent = "Ready to bake";
+      dom["start-button"].disabled = false;
+      dom["start-button"].textContent = "Start pie hunt";
+      if (!initial) burstAtPlayer(0xff9abc,6,.9);
+    }).catch(function (error) {
+      console.warn("Cube Pet model failed, using fallback",error);
+      if (token !== modelLoadToken) return;
+      showPetModel(createFallbackPet(pet));
+      dom["model-status"].textContent = "Offline preview";
+      dom["start-button"].disabled = false;
+      dom["start-button"].textContent = "Start pie hunt";
+    });
+  }
+
+  function showPetModel(model) {
+    while (petMount.children.length) petMount.remove(petMount.children[0]);
+    petMount.add(model);
+    model.rotation.y = 0;
+    model.position.y = 0;
+    playerRoot.position.set(0,0,0);
+    player.yaw = 0;
+    playerRoot.rotation.y = 0;
+  }
+
+  function clearGameplayMeshes() {
+    ingredientNodes.forEach(function (n) { if (n.group) meadow.remove(n.group); });
+    recipeScrolls.forEach(function (s) { if (s.group) meadow.remove(s.group); });
+    ingredientNodes.length = 0;
+    recipeScrolls.length = 0;
+    Object.keys(pieDisplayMeshes).forEach(function (key) { meadow.remove(pieDisplayMeshes[key]); });
+    pieDisplayMeshes = {};
+  }
+
+  function createIngredientMesh(key) {
+    var g = new THREE.Group();
+    var halo = new THREE.Mesh(new THREE.TorusGeometry(.45,.03,5,18), new THREE.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: .72 }));
+    halo.rotation.x = Math.PI/2;
+    halo.position.y = .06;
+    g.add(halo);
+    if (key === "apple") {
+      var apple = new THREE.Mesh(new THREE.SphereGeometry(.24,8,7), mat(0xe25757,.48));
+      apple.position.y = .22;
+      apple.castShadow = true;
+      var leaf = new THREE.Mesh(new THREE.SphereGeometry(.07,6,4), mat(0x63b55d));
+      leaf.position.set(.11,.48,.03);
+      leaf.scale.set(1.6,.5,1.0);
+      var stem = new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.12,5), mat(0x7e5a38));
+      stem.position.set(0,.42,0);
+      g.add(apple, leaf, stem);
+    } else if (key === "blueberry") {
+      [[-.12,.18,0],[.12,.2,0],[0,.34,.05],[0,.12,.15]].forEach(function (p) {
+        var berry = new THREE.Mesh(new THREE.SphereGeometry(.14,7,6), mat(0x5971df,.42));
+        berry.position.set(p[0],p[1],p[2]);
+        berry.castShadow = true;
+        g.add(berry);
+      });
+      var leaf2 = new THREE.Mesh(new THREE.ConeGeometry(.1,.22,4), mat(0x5da95d));
+      leaf2.position.set(0,.52,0);
+      leaf2.rotation.z = .4;
+      g.add(leaf2);
+    } else if (key === "cherry") {
+      var c1 = new THREE.Mesh(new THREE.SphereGeometry(.16,8,6), mat(0xc64255,.45));
+      var c2 = c1.clone();
+      c1.position.set(-.11,.18,0); c2.position.set(.11,.18,0);
+      c1.castShadow = c2.castShadow = true;
+      var st1 = new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.32,5), mat(0x6e5234));
+      st1.position.set(-.06,.42,.03); st1.rotation.z = -.38;
+      var st2 = st1.clone(); st2.position.set(.06,.42,.03); st2.rotation.z = .38;
+      g.add(c1,c2,st1,st2);
+    } else if (key === "pumpkin") {
+      var body = new THREE.Mesh(new THREE.SphereGeometry(.28,10,8), mat(0xe38d3d,.58));
+      body.scale.set(1.1,.85,1.1);
+      body.position.y = .22;
+      body.castShadow = true;
+      for (var i=0;i<5;i++) {
+        var band = new THREE.Mesh(new THREE.TorusGeometry(.18,.015,5,12), mat(0xce7a32,.5));
+        band.rotation.y = i*.55;
+        band.rotation.x = Math.PI/2;
+        band.scale.set(1.2,.95,1.2);
+        band.position.y = .22;
+        g.add(band);
+      }
+      var stem = new THREE.Mesh(new THREE.CylinderGeometry(.04,.06,.18,5), mat(0x6b8f42));
+      stem.position.set(0,.47,0);
+      g.add(body,stem);
+    } else if (key === "honey") {
+      var jar = new THREE.Mesh(new THREE.CylinderGeometry(.18,.21,.42,6), mat(0xe3b351,.28,.08));
+      jar.position.y = .23;
+      jar.castShadow = true;
+      var lid = new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.08,6), mat(0xfff0cf));
+      lid.position.y = .47;
+      var stripe = new THREE.Mesh(new THREE.BoxGeometry(.38,.12,.18), mat(0xffd96c));
+      stripe.position.set(0,.23,.17);
+      g.add(jar,lid,stripe);
+    }
+    g.userData.halo = halo;
+    return g;
+  }
+
+  function spawnIngredients() {
+    ingredientNodes.forEach(function (n) { meadow.remove(n.group); });
+    ingredientNodes.length = 0;
+    var rnd = seeded(9123);
+    INGREDIENTS.forEach(function (info) {
+      for (var i = 0; i < 6; i++) {
+        var node = { key: info.key, group: createIngredientMesh(info.key), available: true, respawnAt: 0, phase: rnd() * Math.PI * 2, baseY: .58, zone: info.zone };
+        repositionIngredient(node, rnd);
+        ingredientNodes.push(node);
+      }
+    });
+  }
+
+  function repositionIngredient(node, rnd) {
+    rnd = rnd || Math.random;
+    var tries = 0, x = 0, z = 0;
+    do {
+      x = node.zone.x + (rnd() * 2 - 1) * node.zone.spread;
+      z = node.zone.z + (rnd() * 2 - 1) * node.zone.spread;
+      tries++;
+    } while ((Math.hypot(x, z - BAKERY_Z) < 6.0 || Math.hypot(x, z) > WORLD_RADIUS - 1.6) && tries < 50);
+    node.x = x; node.z = z;
+    node.group.position.set(x, node.baseY, z);
+    node.group.userData.baseY = node.baseY;
+    node.group.userData.phase = node.phase;
+    meadow.add(node.group);
+    node.group.visible = true;
+    node.available = true;
+  }
+
+  function createRecipeScrollMesh() {
+    var g = new THREE.Group();
+    var paper = new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,.7,12), mat(0xfff0cf));
+    paper.rotation.z = Math.PI/2;
+    paper.castShadow = true;
+    g.add(paper);
+    var ribbon = new THREE.Mesh(new THREE.BoxGeometry(.12,.18,.78), mat(0xff88a9));
+    ribbon.position.y = 0.01;
+    g.add(ribbon);
+    var seal = new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.06,12), mat(0xffd46f));
+    seal.position.set(0,.18,0);
+    seal.rotation.x = Math.PI/2;
+    g.add(seal);
+    var glow = new THREE.Mesh(new THREE.TorusGeometry(.48,.03,6,20), new THREE.MeshBasicMaterial({ color: 0xa987ff, transparent: true, opacity: .75 }));
+    glow.rotation.x = Math.PI/2;
+    g.add(glow);
+    g.userData.halo = glow;
+    return g;
+  }
+
+  function spawnRecipeScrolls() {
+    recipeScrolls.forEach(function (s) { meadow.remove(s.group); });
+    recipeScrolls.length = 0;
+    [
+      { id: "blueberryPie", x: 31.0, z: 23.5 },
+      { id: "cherryPie", x: -31.5, z: -24.0 },
+      { id: "forestPie", x: 0, z: -39.0 }
+    ].forEach(function (item, index) {
+      var scroll = { recipeId: item.id, x: item.x, z: item.z, found: false, group: createRecipeScrollMesh(), phase: index * 1.4 + 0.5 };
+      scroll.group.position.set(item.x, .72, item.z);
+      scroll.group.userData.baseY = .72;
+      scroll.group.userData.phase = scroll.phase;
+      recipeScrolls.push(scroll);
+      meadow.add(scroll.group);
+    });
+  }
+
+  function clearProgressState() {
+    INGREDIENTS.forEach(function (i) { inventory[i.key] = 0; });
+    RECIPES.forEach(function (r) { knownRecipes[r.id] = false; bakedRecipes[r.id] = 0; });
+    knownRecipes.applePie = true;
+    run.activeRecipeId = "applePie";
+    run.totalPies = 0;
+    run.uniquePies = 0;
+  }
+
+  function resetRun() {
+    run.score=0; run.elapsed=0; run.combo=1; run.comboTimer=0;
+    player.x=0; player.z=0; player.vx=0; player.vz=0; player.yaw=0; player.hopPhase=0; player.jumpY=0; player.jumpV=0; player.slow=1;
+    playerRoot.position.set(0,0,0);
+    playerRoot.rotation.y=0;
+    shadowBlob.position.set(0,.028,0);
+    cameraControl.yaw = cameraControl.targetYaw = 0;
+    cameraControl.pitch = cameraControl.targetPitch = 0.52;
+    cameraControl.distance = cameraControl.targetDistance = window.innerHeight > window.innerWidth ? 28.0 : 23.0;
+    cameraPointers.clear();
+    lastPinchDistance = 0;
+    dom.combo.classList.remove("show");
+    clearGameplayMeshes();
+    clearProgressState();
+    spawnIngredients();
+    spawnRecipeScrolls();
+    updateHUD();
+    updatePantryModal();
+    updateActionButton();
+  }
+
+  function startGame() {
+    unlockAudio();
+    resetRun();
+    gameState="playing";
+    dom["menu-screen"].classList.add("hidden");
+    dom.hud.classList.remove("hidden");
+    dom.controls.classList.remove("hidden");
+    dom["pause-modal"].classList.add("hidden");
+    dom["result-modal"].classList.add("hidden");
+    dom["pantry-modal"].classList.add("hidden");
+    sound("start");
+    showGuide("playing");
+  }
+
+  function showGuide(returnState) {
+    guideReturnState = returnState || (gameState === "paused" ? "paused" : "playing");
+    input.x = 0;
+    input.y = 0;
+    resetJoystick();
+    cameraPointers.clear();
+    lastPinchDistance = 0;
+    dom["pause-modal"].classList.add("hidden");
+    dom["guide-modal"].classList.remove("hidden");
+    gameState = "guide";
+  }
+
+  function closeGuide() {
+    dom["guide-modal"].classList.add("hidden");
+    tutorialShown = true;
+    if (guideReturnState === "paused") {
+      gameState = "paused";
+      dom["pause-modal"].classList.remove("hidden");
+    } else {
+      gameState = "playing";
+      updateObjectiveCompass();
+      backgroundPreload();
+    }
+    lastFrame = performance.now();
+  }
+
+  function backgroundPreload() {
+    var queue=PETS.filter(function(p){return p.id!==selectedPet.id && !modelCache.has(p.id);});
+    var index=0;
+    function next() {
+      if (gameState!=="playing" || index>=queue.length) return;
+      loadPetModel(queue[index++]).catch(function(){}).then(function(){setTimeout(next,350);});
+    }
+    setTimeout(next,1200);
+  }
+
+  function showMenu() {
+    gameState="menu";
+    input.x=0; input.y=0; resetJoystick();
+    cameraPointers.clear(); lastPinchDistance=0;
+    dom.hud.classList.add("hidden");
+    dom.controls.classList.add("hidden");
+    dom["pause-modal"].classList.add("hidden");
+    dom["result-modal"].classList.add("hidden");
+    dom["pantry-modal"].classList.add("hidden");
+    dom["menu-screen"].classList.remove("hidden");
+    playerRoot.position.set(0,0,0);
+    playerRoot.rotation.y=0;
+    shadowBlob.position.set(0,.028,0);
+  }
+
+  function pauseGame() {
+    if (gameState!=="playing") return;
+    gameState="paused";
+    input.x=0; input.y=0; resetJoystick();
+    cameraPointers.clear(); lastPinchDistance=0;
+    dom["pause-modal"].classList.remove("hidden");
+    sound("tap");
+  }
+
+  function resumeGame() {
+    if (gameState!=="paused") return;
+    gameState="playing";
+    dom["pause-modal"].classList.add("hidden");
+    lastFrame=performance.now();
+    sound("tap");
+  }
+
+  function openPantry() {
+    if (gameState !== "playing" && gameState !== "paused") return;
+    if (gameState === "playing") gameState = "pantry";
+    input.x=0; input.y=0; resetJoystick();
+    updatePantryModal();
+    dom["pantry-modal"].classList.remove("hidden");
+    sound("tap");
+  }
+
+  function closePantry() {
+    if (gameState !== "pantry") { dom["pantry-modal"].classList.add("hidden"); return; }
+    gameState = "playing";
+    dom["pantry-modal"].classList.add("hidden");
+    lastFrame = performance.now();
+    sound("tap");
+  }
+
+  function finishGame() {
+    if (gameState!=="playing") return;
+    gameState="result";
+    input.x=0; input.y=0; resetJoystick();
+    sound("win");
+    if (navigator.vibrate) navigator.vibrate([35,35,70]);
+    for(var i=0;i<55;i++) {
+      setTimeout(function(){ burstAtPlayer([0xff79a8,0xffd15b,0x70d7ad,0x7bcfff,0xa98cff][Math.floor(Math.random()*5)],2,2.7); },i*20);
+    }
+    var seconds=run.elapsed;
+    var key="cubePetsPieBest";
+    var best=Number(localStorage.getItem(key)||0);
+    if(!best || seconds<best){ best=seconds; try{localStorage.setItem(key,String(best));}catch(e){} }
+    dom["result-emoji"].textContent=selectedPet.emoji;
+    dom["result-message"].textContent=selectedPet.name + " baked every recipe in the woodland cookbook!";
+    dom["result-time"].textContent=formatTime(seconds);
+    dom["result-score"].textContent=String(run.score);
+    dom["result-best"].textContent=best?formatTime(best):"--";
+    setTimeout(function(){dom["result-modal"].classList.remove("hidden");},700);
+  }
+
+  function formatTime(seconds) {
+    var total=Math.max(0,Math.floor(seconds));
+    return Math.floor(total/60)+":"+String(total%60).padStart(2,"0");
+  }
+
+  function updateInput() {
+    var k=input.keys;
+    var x=input.x, y=input.y;
+    if(k.ArrowLeft||k.KeyA)x-=1;
+    if(k.ArrowRight||k.KeyD)x+=1;
+    if(k.ArrowUp||k.KeyW)y-=1;
+    if(k.ArrowDown||k.KeyS)y+=1;
+    var len=Math.hypot(x,y);
+    if(len>1){x/=len;y/=len;}
+    return {x:x,y:y};
+  }
+
+  function updateGame(dt,time) {
+    var move=updateInput();
+    var magnitude=Math.min(1,Math.hypot(move.x,move.y));
+    player.moving=magnitude>.06;
+    var slow=1;
+    for(var i=0;i<puddles.length;i++) {
+      if(Math.hypot(player.x-puddles[i].x,player.z-puddles[i].z)<puddles[i].radius && player.jumpY<.14) slow=.52;
+    }
+    player.slow=damp(player.slow,slow,8,dt);
+    var speed=6.35*player.slow*(player.jumpY>.05?1.12:1);
+    var cameraCos=Math.cos(cameraControl.yaw);
+    var cameraSin=Math.sin(cameraControl.yaw);
+    var worldMoveX=move.x*cameraCos+move.y*cameraSin;
+    var worldMoveZ=-move.x*cameraSin+move.y*cameraCos;
+    var targetVx=worldMoveX*speed;
+    var targetVz=worldMoveZ*speed;
+    player.vx=damp(player.vx,targetVx,player.moving?10:7,dt);
+    player.vz=damp(player.vz,targetVz,player.moving?10:7,dt);
+    player.x+=player.vx*dt;
+    player.z+=player.vz*dt;
+
+    var dist=Math.hypot(player.x,player.z);
+    if(dist>WORLD_RADIUS) {
+      var nx=player.x/dist,nz=player.z/dist;
+      player.x=nx*WORLD_RADIUS;
+      player.z=nz*WORLD_RADIUS;
+      player.vx*=.35; player.vz*=.35;
+    }
+
+    if(player.moving) {
+      var targetYaw=Math.atan2(player.vx,player.vz);
+      player.yaw=angleDamp(player.yaw,targetYaw,13,dt);
+      player.hopPhase+=dt*(reducedMotion?5:9.6)*(0.65+magnitude*.45);
+    } else {
+      player.hopPhase+=dt*2.1;
+    }
+
+    player.jumpV-=12.5*dt;
+    player.jumpY+=player.jumpV*dt;
+    if(player.jumpY<0){player.jumpY=0;player.jumpV=0;}
+
+    var littleHop=player.moving && player.jumpY===0 ? Math.abs(Math.sin(player.hopPhase))*0.34 : (!player.moving?Math.sin(time*2.2)*.025:0);
+    var y=player.jumpY+littleHop;
+    playerRoot.position.set(player.x,y,player.z);
+    playerRoot.rotation.y=player.yaw;
+    shadowBlob.position.set(player.x,.028,player.z);
+    var shadowScale=clamp(1-y*.28,.56,1);
+    shadowBlob.scale.set(shadowScale,shadowScale,shadowScale);
+    shadowBlob.material.opacity=clamp(.23-y*.07,.08,.23);
+
+    var squash=1;
+    if(player.moving && player.jumpY===0) squash=1-Math.abs(Math.cos(player.hopPhase))*0.06;
+    petMount.scale.set(2-squash,squash,2-squash);
+    petMount.rotation.z=player.moving?Math.sin(player.hopPhase)*.055:Math.sin(time*1.7)*.015;
+    petMount.rotation.x=player.moving?Math.cos(player.hopPhase)*.035:0;
+
+    checkIngredients(time);
+    checkRecipeScrolls();
+    checkMushrooms();
+    checkOvenContext();
+    run.elapsed+=dt;
+    if(run.comboTimer>0){
+      run.comboTimer-=dt;
+      if(run.comboTimer<=0){run.combo=1;dom.combo.classList.remove("show");}
+    }
+    updateRespawns(run.elapsed);
+    updateObjectiveCompass();
+  }
+
+  function updateRespawns(time) {
+    ingredientNodes.forEach(function (node) {
+      if (!node.available && time >= node.respawnAt) {
+        repositionIngredient(node);
+      }
+    });
+  }
+
+  function bigHop() {
+    if (gameState!=="playing") return;
+    if (contextAction === "bake") {
+      bakeActiveRecipe();
+      dom["jump-button"].classList.add("pressed");
+      setTimeout(function(){dom["jump-button"].classList.remove("pressed");},120);
+      return;
+    }
+    if (player.jumpY > .06) return;
+    unlockAudio();
+    player.jumpV=6.0;
+    player.hopPhase=0;
+    sound("jump");
+    dom["jump-button"].classList.add("pressed");
+    setTimeout(function(){dom["jump-button"].classList.remove("pressed");},120);
+    if(navigator.vibrate) navigator.vibrate(18);
+  }
+
+  function collectIngredient(node) {
+    node.available = false;
+    node.group.visible = false;
+    node.respawnAt = run.elapsed + 8 + Math.random() * 7;
+    inventory[node.key] += 1;
+    if(run.comboTimer>0) run.combo=Math.min(5,run.combo+1); else run.combo=1;
+    run.comboTimer=4.8;
+    run.score += 12 * run.combo;
+    if(run.combo>1){dom.combo.textContent="Combo x"+run.combo;dom.combo.classList.add("show");}
+    var def = ingredientDef(node.key);
+    burstAt(node.x,.7,node.z,def.color,12,1.5);
+    sound("collect",run.combo);
+    if(navigator.vibrate) navigator.vibrate(10);
+    showPickupFloat(def.emoji);
+    updateHUD();
+  }
+
+  function checkIngredients(time) {
+    for(var i=0;i<ingredientNodes.length;i++) {
+      var n = ingredientNodes[i];
+      if (n.available && Math.hypot(player.x-n.x,player.z-n.z)<1.15) {
+        collectIngredient(n);
+        break;
+      }
+    }
+  }
+
+  function unlockRecipe(id, reason) {
+    if (knownRecipes[id]) return;
+    knownRecipes[id] = true;
+    run.score += 90;
+    run.activeRecipeId = id;
+    var recipe = recipeDef(id);
+    burstAtPlayer(0xa98cff,16,1.8);
+    sound("unlock");
+    if (reason === "scroll") toast("New recipe found: " + recipe.name + "!", 2600);
+    else toast("Achievement recipe unlocked: " + recipe.name + "!", 2600);
+    updateHUD();
+    updatePantryModal();
+  }
+
+  function checkRecipeScrolls() {
+    for (var i = 0; i < recipeScrolls.length; i++) {
+      var s = recipeScrolls[i];
+      if (!s.found && Math.hypot(player.x - s.x, player.z - s.z) < 1.18) {
+        s.found = true;
+        meadow.remove(s.group);
+        unlockRecipe(s.recipeId, "scroll");
+        break;
+      }
+    }
+  }
+
+  function checkMushrooms() {
+    mushrooms.forEach(function(m){
+      if(m.cooldown>0)m.cooldown-=1/60;
+      if(m.cooldown<=0 && player.jumpY<.1 && Math.hypot(player.x-m.x,player.z-m.z)<m.radius) {
+        player.jumpV=7.2;
+        m.cooldown=1.2;
+        m.mesh.scale.y=.62;
+        setTimeout(function(){m.mesh.scale.y=1;},160);
+        sound("boing");
+        burstAt(m.x,.55,m.z,0xff9ab0,12,1.5);
+        toast("Boing!",900);
+      }
+    });
+  }
+
+  function currentRecipe() {
+    return recipeDef(run.activeRecipeId);
+  }
+
+  function recipeReady(recipe) {
+    recipe = recipe || currentRecipe();
+    if (!recipe || !knownRecipes[recipe.id]) return false;
+    for (var key in recipe.needs) {
+      if ((inventory[key] || 0) < recipe.needs[key]) return false;
+    }
+    return true;
+  }
+
+  function checkOvenContext() {
+    var ready = recipeReady(currentRecipe());
+    var nearOven = Math.hypot(player.x - oven.x, player.z - oven.z) < 2.15;
+    contextAction = ready && nearOven ? "bake" : "";
+    updateActionButton();
+    oven.ring.material.opacity = ready ? (nearOven ? 0.8 : 0.56) : 0.24;
+    oven.ring.material.color.setHex(ready ? 0xffd56b : 0xffffff);
+    var recipe = currentRecipe();
+    if (!recipe) {
+      dom.mission.childNodes[0].nodeValue = "No recipe selected.";
+      return;
+    }
+    if (contextAction === "bake") dom.mission.childNodes[0].nodeValue = "Ready! Tap BAKE PIE at the oven.";
+    else if (ready) dom.mission.childNodes[0].nodeValue = "You have everything for " + recipe.name + ". Head to the oven.";
+    else dom.mission.childNodes[0].nodeValue = "Gather ingredients for " + recipe.name + ".";
+  }
+
+
+  function objectiveTarget() {
+    var recipe = currentRecipe();
+    if (!recipe) return null;
+    if (recipeReady(recipe)) {
+      return { x: oven.x, z: oven.z, icon: "🔥", text: "Return to the oven • ready to bake" };
+    }
+    var missingKey = null;
+    for (var key in recipe.needs) {
+      if ((inventory[key] || 0) < recipe.needs[key]) { missingKey = key; break; }
+    }
+    if (!missingKey) return { x: oven.x, z: oven.z, icon: "🔥", text: "Return to the oven" };
+    var def = ingredientDef(missingKey);
+    var best = null;
+    var bestDistance = Infinity;
+    ingredientNodes.forEach(function (node) {
+      if (!node.available || node.key !== missingKey) return;
+      var distance = Math.hypot(player.x-node.x,player.z-node.z);
+      if (distance < bestDistance) { bestDistance = distance; best = node; }
+    });
+    var targetX = best ? best.x : def.zone.x;
+    var targetZ = best ? best.z : def.zone.z;
+    return {
+      x: targetX,
+      z: targetZ,
+      icon: def.emoji,
+      text: "Find " + def.name + " • " + (inventory[missingKey] || 0) + " / " + recipe.needs[missingKey]
+    };
+  }
+
+  function updateObjectiveCompass() {
+    if (!dom["objective-compass"] || !camera) return;
+    var target = objectiveTarget();
+    if (!target) return;
+    var dx = target.x-player.x;
+    var dz = target.z-player.z;
+    var distance = Math.max(0,Math.round(Math.hypot(dx,dz)));
+    var worldAngle = Math.atan2(dx,dz);
+    var screenAngle = worldAngle-cameraControl.yaw-Math.PI;
+    dom["objective-icon"].textContent = target.icon;
+    dom["objective-text"].textContent = target.text + " • " + distance + " paces";
+    dom["objective-arrow"].style.transform = "rotate(" + screenAngle + "rad)";
+  }
+
+  function updateActionButton() {
+    if (contextAction === "bake") {
+      dom["jump-icon"].textContent = "🥧";
+      dom["jump-label"].textContent = "BAKE PIE";
+    } else {
+      dom["jump-icon"].textContent = "⇧";
+      dom["jump-label"].textContent = "BIG HOP";
+    }
+  }
+
+  function bakeActiveRecipe() {
+    var recipe = currentRecipe();
+    if (!recipe || !recipeReady(recipe)) return;
+    for (var key in recipe.needs) inventory[key] -= recipe.needs[key];
+    run.totalPies += 1;
+    run.score += 240;
+    bakedRecipes[recipe.id] = (bakedRecipes[recipe.id] || 0) + 1;
+    var firstTime = bakedRecipes[recipe.id] === 1;
+    if (firstTime) {
+      run.uniquePies += 1;
+      placePieOnTable(recipe);
+    }
+    sound("bake");
+    burstAt(oven.x, 1.4, oven.z, recipe.pieColor, 22, 2.2);
+    toast(recipe.name + " baked!", 1800);
+    if (navigator.vibrate) navigator.vibrate([12,18,12]);
+    checkAchievementUnlocks();
+    updateHUD();
+    updatePantryModal();
+    if (run.uniquePies >= GOAL_UNIQUE_PIES) finishGame();
+  }
+
+  function checkAchievementUnlocks() {
+    RECIPES.forEach(function (recipe) {
+      if (recipe.unlock.type === "achievement" && run.totalPies >= recipe.unlock.pies) unlockRecipe(recipe.id, "achievement");
+    });
+  }
+
+  function makePieMesh(recipe) {
+    var g = new THREE.Group();
+    var crust = new THREE.Mesh(new THREE.CylinderGeometry(.38,.44,.16,18), mat(0xd8a163,.62));
+    crust.position.y = .09;
+    crust.castShadow = true;
+    crust.receiveShadow = true;
+    var filling = new THREE.Mesh(new THREE.CylinderGeometry(.33,.37,.08,18), mat(recipe.pieColor,.52));
+    filling.position.y = .18;
+    filling.castShadow = true;
+    var top = new THREE.Mesh(new THREE.TorusGeometry(.29,.035,6,18), mat(0xf0d4a2,.72));
+    top.rotation.x = Math.PI/2;
+    top.position.y = .22;
+    g.add(crust,filling,top);
+    if (recipe.id === "blueberryPie" || recipe.id === "forestPie") {
+      for (var i=0;i<3;i++) {
+        var berry = new THREE.Mesh(new THREE.SphereGeometry(.05,6,4), mat(0xffffff,.4));
+        berry.position.set((i-1)*.1,.24,.05);
+        g.add(berry);
+      }
+    }
+    if (recipe.id === "pumpkinPie") {
+      var swirl = new THREE.Mesh(new THREE.SphereGeometry(.08,7,5), mat(0xfff6ea,.4));
+      swirl.position.set(0,.28,0);
+      swirl.scale.y = .5;
+      g.add(swirl);
+    }
+    return g;
+  }
+
+  function placePieOnTable(recipe) {
+    if (pieDisplayMeshes[recipe.id]) return;
+    var slot = pieSlots[recipeIndex(recipe.id)] || pieSlots[0];
+    var pie = makePieMesh(recipe);
+    pie.position.set(slot.x, slot.y, slot.z);
+    pie.rotation.y = recipeIndex(recipe.id) * 0.75;
+    meadow.add(pie);
+    pieDisplayMeshes[recipe.id] = pie;
+  }
+
+  function cycleRecipe(dir) {
+    var list = knownRecipeList();
+    if (!list.length) return;
+    var idx = 0;
+    for (var i=0;i<list.length;i++) if (list[i].id === run.activeRecipeId) idx = i;
+    idx = (idx + dir + list.length) % list.length;
+    run.activeRecipeId = list[idx].id;
+    sound("tap");
+    updateHUD();
+  }
+
+  function updateHUD() {
+    dom["pies-baked"].textContent = String(run.uniquePies);
+    dom["known-count"].textContent = String(knownRecipeList().length);
+    dom.score.textContent = String(run.score);
+    dom["progress-fill"].style.width = (run.uniquePies / GOAL_UNIQUE_PIES * 100) + "%";
+    var recipe = currentRecipe();
+    if (!recipe) return;
+    dom["recipe-name"].textContent = recipe.name;
+    dom["recipe-sub"].textContent = recipe.desc;
+    var readyNow = recipeReady(recipe);
+    var bakedCount = bakedRecipes[recipe.id] || 0;
+    dom["recipe-kicker"].textContent = readyNow ? "STEP 2 • RETURN TO OVEN" : (bakedCount ? "BAKED " + bakedCount + " • GATHER AGAIN" : "STEP 1 • GATHER");
+    var status = "Gather ingredients";
+    if (recipeReady(recipe)) status = "Ready to bake at the oven";
+    if (bakedRecipes[recipe.id] > 0) status = bakedRecipes[recipe.id] === 1 ? "Already baked once • you can bake more" : "Baked " + bakedRecipes[recipe.id] + " times";
+    if (recipeReady(recipe)) status = "Ready to bake at the oven";
+    dom["recipe-status"].textContent = status;
+    dom["recipe-card"].classList.toggle("ready", readyNow);
+    var itemsHtml = "";
+    Object.keys(recipe.needs).forEach(function (key) {
+      var def = ingredientDef(key);
+      var owned = inventory[key] || 0;
+      var need = recipe.needs[key];
+      itemsHtml += '<div class="need-chip ' + (owned >= need ? 'done' : '') + '">' + def.emoji + ' ' + def.name + '<br><small>' + owned + ' / ' + need + '</small></div>';
+    });
+    dom["recipe-items"].innerHTML = itemsHtml;
+    updateObjectiveCompass();
+    updatePantryModal();
+  }
+
+  function updatePantryModal() {
+    var invHtml = "";
+    INGREDIENTS.forEach(function (item) {
+      invHtml += '<div class="inventory-item">' + item.emoji + ' ' + item.name + '<small>' + (inventory[item.key] || 0) + ' collected</small></div>';
+    });
+    dom["inventory-grid"].innerHTML = invHtml;
+    var listHtml = "";
+    RECIPES.forEach(function (recipe) {
+      var state = knownRecipes[recipe.id] ? (bakedRecipes[recipe.id] ? 'Baked' : 'Known') : 'Locked';
+      var detail = knownRecipes[recipe.id] ? recipe.desc : (recipe.unlock.type === 'scroll' ? 'Find in the woods' : 'Unlock by baking ' + recipe.unlock.pies + ' pies');
+      listHtml += '<div class="recipe-row"><div><div>' + recipe.name + '</div><small>' + detail + '</small></div><span class="tag">' + state + '</span></div>';
+    });
+    dom["recipe-list"].innerHTML = listHtml;
+  }
+
+  function updateWorld(dt,time) {
+    decorativeSpinners.forEach(function(c,index){
+      c.position.x=Math.cos(time*c.userData.speed+index)*48;
+      c.position.z=Math.sin(time*c.userData.speed+index*1.7)*42;
+    });
+    butterflies.forEach(function(b,index){
+      var speed=b.userData.speed||.75;
+      var p=b.userData.phase+time*speed;
+      b.position.x=b.userData.base.x+Math.cos(p)*1.4;
+      b.position.z=b.userData.base.z+Math.sin(p*.92)*1.18;
+      b.position.y=b.userData.base.y+Math.sin(p*2.2)*.28;
+      b.rotation.y=-p+.5;
+      var flap=Math.sin(time*6.5+b.userData.flapOffset)*0.68;
+      if (b.userData.leftWing && b.userData.rightWing) {
+        b.userData.leftWing.rotation.x=b.userData.leftWing.userData.baseRotationX+flap;
+        b.userData.rightWing.rotation.x=b.userData.rightWing.userData.baseRotationX-flap;
+        b.userData.leftWing.rotation.z = 0.035 + Math.cos(time*3.1+b.userData.flapOffset)*0.022;
+        b.userData.rightWing.rotation.z = -0.035 - Math.cos(time*3.1+b.userData.flapOffset)*0.022;
+      }
+      if (b.userData.bodyRoot) {
+        b.userData.bodyRoot.rotation.z = Math.sin(p*1.8) * 0.13;
+        b.userData.bodyRoot.rotation.x = Math.cos(p*1.45) * 0.07;
+      }
+    });
+    foragingBeacons.forEach(function(beacon,index){
+      if(!beacon.userData.crown)return;
+      beacon.userData.crown.position.y=2.7+Math.sin(time*2.1+beacon.userData.phase)*.16;
+      beacon.userData.crown.rotation.y+=dt*.7;
+    });
+    ingredientNodes.forEach(function(n){
+      if(!n.available)return;
+      var g=n.group;
+      g.position.y=g.userData.baseY+Math.sin(time*2.7+n.phase)*.13;
+      g.rotation.y+=dt*1.45;
+      if(g.userData.halo)g.userData.halo.rotation.z+=dt*1.4;
+    });
+    recipeScrolls.forEach(function(s){
+      if(s.found)return;
+      var g=s.group;
+      g.position.y=g.userData.baseY+Math.sin(time*2.2+s.phase)*.12;
+      g.rotation.y+=dt*1.1;
+      if(g.userData.halo)g.userData.halo.rotation.z-=dt*1.2;
+    });
+    if (oven && oven.ring) {
+      oven.ring.scale.setScalar(1 + Math.sin(time * 4.5) * 0.05);
+      oven.smoke.forEach(function (puff, index) {
+        puff.position.y = puff.userData.baseY + ((time * 0.42 + index * 0.24) % 1) * 0.75;
+        puff.position.x = 2.62 + index * 0.08 + Math.sin(time * 0.8 + puff.userData.phase) * 0.18;
+        puff.material.opacity = 0.48 - index * 0.06 - ((time * 0.42 + index * 0.24) % 1) * 0.22;
+        puff.rotation.y += dt * 0.35;
+      });
+    }
+    Object.keys(pieDisplayMeshes).forEach(function (key, index) {
+      var pie = pieDisplayMeshes[key];
+      pie.rotation.y += dt * 0.35;
+      pie.position.y = pieSlots[recipeIndex(key)].y + Math.sin(time * 2 + index) * 0.02;
+    });
+    updateParticles(dt);
+  }
+
+  function updateCamera(dt,time) {
+    if(gameState==="menu"||gameState==="loading") {
+      var a=time*.18;
+      var compactLandscape=window.innerWidth>window.innerHeight && window.innerHeight<600;
+      var compactPortrait=window.innerWidth<=430 && window.innerHeight>window.innerWidth;
+      var focusX=compactLandscape?-3.15:0;
+      var focusZ=compactLandscape ? .65 : 0;
+      var lookY=compactPortrait ? .72 : 1.0;
+      var camY=compactPortrait ? 3.0 : 3.25;
+      var camZ=compactPortrait ? 7.75 : 6.1;
+      var targetPos=new THREE.Vector3(focusX+Math.sin(a)*3.5,camY,focusZ+camZ+Math.cos(a)*.55);
+      camera.position.lerp(targetPos,1-Math.exp(-3*dt));
+      camera.lookAt(focusX,lookY,focusZ);
+      var menuHop=Math.abs(Math.sin(time*2.5))*.16;
+      playerRoot.position.set(focusX,menuHop,focusZ);
+      playerRoot.rotation.y=Math.sin(time*.7)*.25;
+      petMount.scale.set(1,1,1);
+      petMount.rotation.set(0,0,0);
+      shadowBlob.position.set(focusX,.028,focusZ);
+      var menuShadow=1-menuHop*.42;
+      shadowBlob.scale.set(menuShadow,menuShadow,menuShadow);
+      shadowBlob.material.opacity=.22-menuHop*.22;
+    } else {
+      cameraControl.yaw=angleDamp(cameraControl.yaw,cameraControl.targetYaw,11,dt);
+      cameraControl.pitch=damp(cameraControl.pitch,cameraControl.targetPitch,11,dt);
+      cameraControl.distance=damp(cameraControl.distance,cameraControl.targetDistance,10,dt);
+      var focusY=.82+player.jumpY*.2;
+      var horizontalDistance=Math.cos(cameraControl.pitch)*cameraControl.distance;
+      var verticalDistance=Math.sin(cameraControl.pitch)*cameraControl.distance;
+      var look=new THREE.Vector3(player.x,focusY,player.z);
+      var desired=new THREE.Vector3(
+        player.x+Math.sin(cameraControl.yaw)*horizontalDistance,
+        focusY+verticalDistance,
+        player.z+Math.cos(cameraControl.yaw)*horizontalDistance
+      );
+      camera.position.x=damp(camera.position.x,desired.x,5.2,dt);
+      camera.position.y=damp(camera.position.y,desired.y,5.2,dt);
+      camera.position.z=damp(camera.position.z,desired.z,5.2,dt);
+      camera.lookAt(look);
+    }
+  }
+
+  function makeParticle(color) {
+    var geometry=Math.random()>.55?new THREE.IcosahedronGeometry(.08,0):new THREE.BoxGeometry(.11,.11,.11);
+    var mesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:1,depthWrite:false}));
+    mesh.userData.life=.75+Math.random()*.5;
+    mesh.userData.maxLife=mesh.userData.life;
+    mesh.userData.velocity=new THREE.Vector3((Math.random()-.5)*2.6,1.2+Math.random()*2.2,(Math.random()-.5)*2.6);
+    mesh.userData.spin=new THREE.Vector3(Math.random()*5,Math.random()*5,Math.random()*5);
+    scene.add(mesh);
+    particles.push(mesh);
+    return mesh;
+  }
+
+  function burstAt(x,y,z,color,count,power) {
+    for(var i=0;i<count;i++) {
+      var p=makeParticle(color);
+      p.position.set(x+(Math.random()-.5)*.4,y+(Math.random()-.5)*.2,z+(Math.random()-.5)*.4);
+      p.userData.velocity.multiplyScalar(power||1);
+    }
+  }
+  function burstAtPlayer(color,count,power){burstAt(playerRoot.position.x,playerRoot.position.y+1,playerRoot.position.z,color,count,power);}
+  function updateParticles(dt) {
+    for(var i=particles.length-1;i>=0;i--) {
+      var p=particles[i];
+      p.userData.life-=dt;
+      if(p.userData.life<=0){scene.remove(p);p.geometry.dispose();p.material.dispose();particles.splice(i,1);continue;}
+      p.userData.velocity.y-=4.8*dt;
+      p.position.addScaledVector(p.userData.velocity,dt);
+      p.rotation.x+=p.userData.spin.x*dt;
+      p.rotation.y+=p.userData.spin.y*dt;
+      p.rotation.z+=p.userData.spin.z*dt;
+      p.material.opacity=p.userData.life/p.userData.maxLife;
+      p.scale.setScalar(.55+.45*p.material.opacity);
+    }
+  }
+
+  function bindUI() {
+    dom["start-button"].addEventListener("click",startGame);
+    dom["pause-button"].addEventListener("click",pauseGame);
+    dom["resume-button"].addEventListener("click",resumeGame);
+    dom["pause-pets-button"].addEventListener("click",showMenu);
+    dom["guide-button"].addEventListener("click", function () { showGuide("paused"); });
+    dom["guide-start-button"].addEventListener("click", closeGuide);
+    dom["again-button"].addEventListener("click",startGame);
+    dom["result-pets-button"].addEventListener("click",showMenu);
+    dom["pantry-button"].addEventListener("click", openPantry);
+    dom["close-pantry-button"].addEventListener("click", closePantry);
+    dom["recipe-prev"].addEventListener("click", function () { cycleRecipe(-1); });
+    dom["recipe-next"].addEventListener("click", function () { cycleRecipe(1); });
+    dom["jump-button"].addEventListener("pointerdown",function(e){e.preventDefault();bigHop();});
+
+    var joyPointer=null;
+    function joyMove(e) {
+      if(e.pointerId!==joyPointer)return;
+      var rect=dom["joystick-zone"].getBoundingClientRect();
+      var cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+      var dx=e.clientX-cx,dy=e.clientY-cy;
+      var max=rect.width*.31;
+      var len=Math.hypot(dx,dy);
+      if(len>max){dx=dx/len*max;dy=dy/len*max;}
+      input.x=dx/max;
+      input.y=dy/max;
+      dom["joystick-knob"].style.transform="translate(calc(-50% + "+dx+"px),calc(-50% + "+dy+"px))";
+    }
+    dom["joystick-zone"].addEventListener("pointerdown",function(e){
+      e.preventDefault(); joyPointer=e.pointerId; dom["joystick-zone"].setPointerCapture(e.pointerId); joyMove(e); unlockAudio();
+    });
+    dom["joystick-zone"].addEventListener("pointermove",joyMove);
+    function joyEnd(e){if(e.pointerId===joyPointer){joyPointer=null;input.x=0;input.y=0;resetJoystick();}}
+    dom["joystick-zone"].addEventListener("pointerup",joyEnd);
+    dom["joystick-zone"].addEventListener("pointercancel",joyEnd);
+
+    var gameCanvas=document.getElementById("game-canvas");
+    function pointerDistance() {
+      var points=Array.from(cameraPointers.values());
+      if(points.length<2)return 0;
+      return Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+    }
+    function cameraPointerDown(e) {
+      if(gameState!=="playing")return;
+      if(e.pointerType==="mouse" && e.button!==0)return;
+      e.preventDefault();
+      unlockAudio();
+      cameraPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      try{gameCanvas.setPointerCapture(e.pointerId);}catch(ignore){}
+      lastPinchDistance=cameraPointers.size>=2?pointerDistance():0;
+    }
+    function cameraPointerMove(e) {
+      if(!cameraPointers.has(e.pointerId) || gameState!=="playing")return;
+      e.preventDefault();
+      var previous=cameraPointers.get(e.pointerId);
+      cameraPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(cameraPointers.size===1) {
+        var dx=e.clientX-previous.x;
+        var dy=e.clientY-previous.y;
+        cameraControl.targetYaw-=dx*.0065;
+        cameraControl.targetPitch=clamp(cameraControl.targetPitch+dy*.0045,.27,1.02);
+      } else {
+        var distance=pointerDistance();
+        if(lastPinchDistance>0 && distance>2) {
+          cameraControl.targetDistance=clamp(
+            cameraControl.targetDistance*(lastPinchDistance/distance),
+            cameraControl.minDistance,
+            cameraControl.maxDistance
+          );
+        }
+        lastPinchDistance=distance;
+      }
+    }
+    function cameraPointerEnd(e) {
+      if(!cameraPointers.has(e.pointerId))return;
+      cameraPointers.delete(e.pointerId);
+      lastPinchDistance=cameraPointers.size>=2?pointerDistance():0;
+    }
+    gameCanvas.addEventListener("pointerdown",cameraPointerDown,{passive:false});
+    gameCanvas.addEventListener("pointermove",cameraPointerMove,{passive:false});
+    gameCanvas.addEventListener("pointerup",cameraPointerEnd);
+    gameCanvas.addEventListener("pointercancel",cameraPointerEnd);
+    gameCanvas.addEventListener("lostpointercapture",cameraPointerEnd);
+    gameCanvas.addEventListener("wheel",function(e){
+      if(gameState!=="playing")return;
+      e.preventDefault();
+      cameraControl.targetDistance=clamp(cameraControl.targetDistance+e.deltaY*.012,cameraControl.minDistance,cameraControl.maxDistance);
+    },{passive:false});
+
+    window.addEventListener("keydown",function(e){
+      input.keys[e.code]=true;
+      if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].indexOf(e.code)>=0)e.preventDefault();
+      if(e.code==="Space")bigHop();
+      if(e.code==="KeyQ")cycleRecipe(-1);
+      if(e.code==="KeyE")cycleRecipe(1);
+      if(e.code==="Escape"){
+        if(gameState==="playing")pauseGame();
+        else if(gameState==="paused")resumeGame();
+        else if(gameState==="pantry")closePantry();
+      }
+      unlockAudio();
+    });
+    window.addEventListener("keyup",function(e){input.keys[e.code]=false;});
+    document.addEventListener("visibilitychange",function(){if(document.hidden&&gameState==="playing")pauseGame();});
+  }
+
+  function resetJoystick() {
+    dom["joystick-knob"].style.transform="translate(-50%,-50%)";
+  }
+
+  function showPickupFloat(emoji) {
+    if (!camera || !renderer || !dom["pickup-layer"]) return;
+    var worldPoint = new THREE.Vector3(player.x, playerRoot.position.y + 1.9, player.z);
+    worldPoint.project(camera);
+    if (worldPoint.z < -1 || worldPoint.z > 1) return;
+    var x = (worldPoint.x * 0.5 + 0.5) * window.innerWidth;
+    var y = (-worldPoint.y * 0.5 + 0.5) * window.innerHeight;
+    var badge = document.createElement("div");
+    badge.className = "pickup-float";
+    badge.style.left = x + "px";
+    badge.style.top = y + "px";
+    badge.innerHTML = '<span class="pickup-plus">+</span><span class="pickup-emoji">' + emoji + '</span>';
+    dom["pickup-layer"].appendChild(badge);
+    setTimeout(function () { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 860);
+  }
+
+  function toast(message,duration) {
+    clearTimeout(toastTimer);
+    dom.toast.textContent=message;
+    dom.toast.classList.add("show");
+    toastTimer=setTimeout(function(){dom.toast.classList.remove("show");},duration||1800);
+  }
+
+  function unlockAudio() {
+    if(audioContext)return;
+    try { audioContext=new (window.AudioContext||window.webkitAudioContext)(); } catch(e) {}
+  }
+
+  function tone(freq,duration,type,volume,delay,endFreq) {
+    if(!audioContext)return;
+    if(audioContext.state==="suspended")audioContext.resume();
+    var now=audioContext.currentTime+(delay||0);
+    var osc=audioContext.createOscillator();
+    var gain=audioContext.createGain();
+    osc.type=type||"sine";
+    osc.frequency.setValueAtTime(freq,now);
+    if(endFreq)osc.frequency.exponentialRampToValueAtTime(endFreq,now+duration);
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(volume||.08,now+.012);
+    gain.gain.exponentialRampToValueAtTime(.0001,now+duration);
+    osc.connect(gain);gain.connect(audioContext.destination);
+    osc.start(now);osc.stop(now+duration+.02);
+  }
+
+  function sound(name,level) {
+    unlockAudio();
+    if(!audioContext)return;
+    if(name==="tap")tone(420,.06,"sine",.035,0,560);
+    if(name==="start"){tone(440,.13,"triangle",.05,0,660);tone(660,.16,"triangle",.045,.12,880);}
+    if(name==="jump"){tone(250,.2,"sine",.055,0,520);tone(520,.1,"triangle",.025,.08,690);}
+    if(name==="boing"){tone(180,.28,"sine",.075,0,650);}
+    if(name==="collect"){
+      var base=520+(level||1)*45;
+      tone(base,.1,"triangle",.05,0,base*1.25);
+      tone(base*1.35,.13,"sine",.035,.07,base*1.65);
+    }
+    if(name==="unlock"){
+      tone(580,.12,"triangle",.06,0,760);
+      tone(760,.15,"triangle",.05,.09,980);
+    }
+    if(name==="bake"){
+      tone(392,.11,"triangle",.06,0,523);
+      tone(523,.16,"triangle",.05,.07,659);
+      tone(659,.18,"sine",.04,.13,784);
+    }
+    if(name==="win"){
+      [523,659,784,1047].forEach(function(f,i){tone(f,.28,"triangle",.065,i*.11,f*1.02);});
+    }
+  }
+
+  function resize() {
+    if(!renderer||!camera)return;
+    var w=window.innerWidth,h=window.innerHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+  }
+
+  function loop(now) {
+    requestAnimationFrame(loop);
+    var dt=Math.min(.033,Math.max(.001,(now-lastFrame)/1000));
+    lastFrame=now;
+    var time=now/1000;
+    if(gameState==="playing")updateGame(dt,time);
+    updateWorld(dt,time);
+    updateCamera(dt,time);
+    renderer.render(scene,camera);
+  }
+
+  window.addEventListener("error",function(e){
+    if(gameState==="loading" && e.message)console.warn(e.message);
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
